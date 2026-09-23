@@ -9,7 +9,7 @@ export UnsupportedError
 export Material, numtype
 export COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON
 export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
-export Layer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
+export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
 export CableCore, CoreLayout, SingleCore, FourCoreLV, CableDesign
 export inner_radius, outer_radius, metallic_layers
 

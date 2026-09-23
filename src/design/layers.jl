@@ -7,60 +7,61 @@ Every layer defines:
 - [`inner_radius`](@ref)
 - [`outer_radius`](@ref).
 
-Tubular layers ([`InsulationLayer`](@ref), [`SemiconLayer`](@ref), [`TubularScreen`](@ref),
-[`Jacket`](@ref)) store these radii directly.
-
-Wire layers ([`WireScreen`](@ref), [`Armour`](@ref)) derive them from the mean radius
-and the wire radius.
+A [`TubularLayer`](@ref) ([`InsulationLayer`](@ref), [`SemiconLayer`](@ref),
+[`TubularScreen`](@ref), [`Jacket`](@ref)) stores these radii directly. A
+[`WireLayer`](@ref) ([`WireScreen`](@ref), [`Armour`](@ref)) derives them from the mean
+radius and the wire radius.
 """
 abstract type Layer{T <: Real} end
 
-for L in (:InsulationLayer, :SemiconLayer, :TubularScreen, :Jacket)
-    @eval begin
-        struct $L{T <: Real} <: Layer{T}
-            r_in::T
-            r_out::T
-            material::Material{T}
+"""
+    TubularLayer{T<:Real} <: Layer{T}
 
-            function $L{T}(r_in, r_out, material::Material) where {T <: Real}
-                _check_finite($(string(L)), (; r_in, r_out))
-                r_in > 0 && r_out - r_in > 0 || throw(
-                    ArgumentError(
-                        $(string(L)) *
-                            ": need 0 < r_in < r_out, got r_in = $r_in, r_out = $r_out",
-                    ),
-                )
-                return new{T}(r_in, r_out, material)
-            end
-        end
+Abstract supertype of layers bounded by two concentric cylinders. Subtypes have the fields
+`r_in::T` and `r_out::T` [m] and `material::Material{T}`.
+"""
+abstract type TubularLayer{T <: Real} <: Layer{T} end
 
-        function $L(r_in::Real, r_out::Real, material::Material)
-            T = _promote_numtype(r_in, r_out, material)
-            return $L{T}(r_in, r_out, material)
-        end
+"""
+    WireLayer{T<:Real} <: Layer{T}
 
-        $L{T}(l::$L) where {T <: Real} = $L{T}(l.r_in, l.r_out, l.material)
-        _retype(::Type{T}, l::$L) where {T} = $L{T}(l)
-        inner_radius(l::$L) = l.r_in
-        outer_radius(l::$L) = l.r_out
-    end
-end
+Abstract supertype of layers of round wires laid helically on a circle. Subtypes have the
+fields `r_mean::T` [m], `n_wires::Int`, `r_wire::T` [m], `lay_length::T` [m] and
+`material::Material{T}`.
+"""
+abstract type WireLayer{T <: Real} <: Layer{T} end
 
 """
     InsulationLayer(r_in, r_out, material)
 
 Main insulation between the conductor screen and the insulation screen. Radii in [m].
 """
-InsulationLayer
+struct InsulationLayer{T <: Real} <: TubularLayer{T}
+    r_in::T
+    r_out::T
+    material::Material{T}
+
+    function InsulationLayer{T}(r_in, r_out, material::Material) where {T <: Real}
+        _check_tube("InsulationLayer", r_in, r_out)
+        return new{T}(r_in, r_out, material)
+    end
+end
 
 """
     SemiconLayer(r_in, r_out, material = SEMICON)
 
 Semiconducting screen on the conductor or on the insulation. Radii in [m].
 """
-SemiconLayer
+struct SemiconLayer{T <: Real} <: TubularLayer{T}
+    r_in::T
+    r_out::T
+    material::Material{T}
 
-SemiconLayer(r_in::Real, r_out::Real) = SemiconLayer(r_in, r_out, SEMICON)
+    function SemiconLayer{T}(r_in, r_out, material::Material) where {T <: Real}
+        _check_tube("SemiconLayer", r_in, r_out)
+        return new{T}(r_in, r_out, material)
+    end
+end
 
 """
     TubularScreen(r_in, r_out, material)
@@ -68,48 +69,42 @@ SemiconLayer(r_in::Real, r_out::Real) = SemiconLayer(r_in, r_out, SEMICON)
 Solid metallic sheath or screen, e.g. an extruded lead or corrugated aluminium sheath.
 Radii in [m].
 """
-TubularScreen
+struct TubularScreen{T <: Real} <: TubularLayer{T}
+    r_in::T
+    r_out::T
+    material::Material{T}
+
+    function TubularScreen{T}(r_in, r_out, material::Material) where {T <: Real}
+        _check_tube("TubularScreen", r_in, r_out)
+        return new{T}(r_in, r_out, material)
+    end
+end
 
 """
     Jacket(r_in, r_out, material)
 
 Non-metallic outer sheath (serving) or bedding. Radii in [m].
 """
-Jacket
+struct Jacket{T <: Real} <: TubularLayer{T}
+    r_in::T
+    r_out::T
+    material::Material{T}
 
-for L in (:WireScreen, :Armour)
-    @eval begin
-        struct $L{T <: Real} <: Layer{T}
-            r_mean::T
-            n_wires::Int
-            r_wire::T
-            lay_length::T
-            material::Material{T}
-
-            function $L{T}(
-                    r_mean, n_wires::Integer, r_wire, lay_length, material::Material,
-                ) where {T <: Real}
-                _check_wires($(string(L)), r_mean, n_wires, r_wire, lay_length)
-                return new{T}(r_mean, n_wires, r_wire, lay_length, material)
-            end
-        end
-
-        function $L(
-                r_mean::Real, n_wires::Integer, r_wire::Real, lay_length::Real,
-                material::Material,
-            )
-            T = _promote_numtype(r_mean, r_wire, lay_length, material)
-            return $L{T}(r_mean, n_wires, r_wire, lay_length, material)
-        end
-
-        function $L{T}(l::$L) where {T <: Real}
-            return $L{T}(l.r_mean, l.n_wires, l.r_wire, l.lay_length, l.material)
-        end
-        _retype(::Type{T}, l::$L) where {T} = $L{T}(l)
-        inner_radius(l::$L) = l.r_mean - l.r_wire
-        outer_radius(l::$L) = l.r_mean + l.r_wire
+    function Jacket{T}(r_in, r_out, material::Material) where {T <: Real}
+        _check_tube("Jacket", r_in, r_out)
+        return new{T}(r_in, r_out, material)
     end
 end
+
+InsulationLayer(r_in::Real, r_out::Real, m::Material) = InsulationLayer{_promote_numtype(r_in, r_out, m)}(r_in, r_out, m)
+SemiconLayer(r_in::Real, r_out::Real, m::Material = SEMICON) = SemiconLayer{_promote_numtype(r_in, r_out, m)}(r_in, r_out, m)
+TubularScreen(r_in::Real, r_out::Real, m::Material) = TubularScreen{_promote_numtype(r_in, r_out, m)}(r_in, r_out, m)
+Jacket(r_in::Real, r_out::Real, m::Material) = Jacket{_promote_numtype(r_in, r_out, m)}(r_in, r_out, m)
+
+_retype(::Type{T}, l::InsulationLayer) where {T} = InsulationLayer{T}(l.r_in, l.r_out, l.material)
+_retype(::Type{T}, l::SemiconLayer) where {T} = SemiconLayer{T}(l.r_in, l.r_out, l.material)
+_retype(::Type{T}, l::TubularScreen) where {T} = TubularScreen{T}(l.r_in, l.r_out, l.material)
+_retype(::Type{T}, l::Jacket) where {T} = Jacket{T}(l.r_in, l.r_out, l.material)
 
 """
     WireScreen(r_mean, n_wires, r_wire, lay_length, material)
@@ -117,7 +112,20 @@ end
 Screen of `n_wires` round wires laid helically on a circle of radius `r_mean` [m]. Each wire
 has radius `r_wire` [m]; `lay_length` [m] is the axial length of one full turn.
 """
-WireScreen
+struct WireScreen{T <: Real} <: WireLayer{T}
+    r_mean::T
+    n_wires::Int
+    r_wire::T
+    lay_length::T
+    material::Material{T}
+
+    function WireScreen{T}(
+            r_mean, n_wires::Integer, r_wire, lay_length, material::Material,
+        ) where {T <: Real}
+        _check_wires("WireScreen", r_mean, n_wires, r_wire, lay_length)
+        return new{T}(r_mean, n_wires, r_wire, lay_length, material)
+    end
+end
 
 """
     Armour(r_mean, n_wires, r_wire, lay_length, material)
@@ -125,7 +133,41 @@ WireScreen
 Armour of `n_wires` round wires, with the same geometry as [`WireScreen`](@ref). Use a
 material with `mu_r > 1`, such as [`STEEL`](@ref), for magnetic armour.
 """
-Armour
+struct Armour{T <: Real} <: WireLayer{T}
+    r_mean::T
+    n_wires::Int
+    r_wire::T
+    lay_length::T
+    material::Material{T}
+
+    function Armour{T}(
+            r_mean, n_wires::Integer, r_wire, lay_length, material::Material,
+        ) where {T <: Real}
+        _check_wires("Armour", r_mean, n_wires, r_wire, lay_length)
+        return new{T}(r_mean, n_wires, r_wire, lay_length, material)
+    end
+end
+
+function WireScreen(r_mean::Real, n_wires::Integer, r_wire::Real, lay_length::Real, m::Material)
+    T = _promote_numtype(r_mean, r_wire, lay_length, m)
+    return WireScreen{T}(r_mean, n_wires, r_wire, lay_length, m)
+end
+
+function Armour(r_mean::Real, n_wires::Integer, r_wire::Real, lay_length::Real, m::Material)
+    T = _promote_numtype(r_mean, r_wire, lay_length, m)
+    return Armour{T}(r_mean, n_wires, r_wire, lay_length, m)
+end
+
+_retype(::Type{T}, l::WireScreen) where {T} = WireScreen{T}(l.r_mean, l.n_wires, l.r_wire, l.lay_length, l.material)
+_retype(::Type{T}, l::Armour) where {T} = Armour{T}(l.r_mean, l.n_wires, l.r_wire, l.lay_length, l.material)
+
+function _check_tube(context, r_in, r_out)
+    _check_finite(context, (; r_in, r_out))
+    r_in > 0 && r_out - r_in > 0 || throw(
+        ArgumentError("$context: need 0 < r_in < r_out, got r_in = $r_in, r_out = $r_out"),
+    )
+    return nothing
+end
 
 function _check_wires(context, r_mean, n_wires, r_wire, lay_length)
     _check_finite(context, (; r_mean, r_wire, lay_length))
@@ -159,10 +201,15 @@ Outer radius [m] of a layer, conductor, [`CableCore`](@ref) or [`CableDesign`](@
 """
 function outer_radius end
 
+inner_radius(l::TubularLayer) = l.r_in
+outer_radius(l::TubularLayer) = l.r_out
+inner_radius(l::WireLayer) = l.r_mean - l.r_wire
+outer_radius(l::WireLayer) = l.r_mean + l.r_wire
+
 numtype(::Layer{T}) where {T} = T
 
 _is_metallic(::Layer) = false
-_is_metallic(::Union{TubularScreen, WireScreen, Armour}) = true
+_is_metallic(::Union{TubularScreen, WireLayer}) = true
 
 function _check_stack(context, r_start, layers)
     r = r_start

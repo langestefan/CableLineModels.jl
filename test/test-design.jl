@@ -33,6 +33,7 @@ end
     for L in (InsulationLayer, TubularScreen, Jacket)
         l = L(1, 2, XLPE)
         @test l isa L{Float64} && l isa Layer{Float64}
+        @test (l isa TubularLayer) != (l isa WireLayer)
         @test inner_radius(l) == 1 && outer_radius(l) == 2
         @test_throws ArgumentError L(2.0, 1.0, XLPE)
         @test_throws ArgumentError L(1.0, 1.0, XLPE)
@@ -50,6 +51,7 @@ end
     for L in (WireScreen, Armour)
         l = L(10.0e-3, 40, 0.5e-3, 0.2, COPPER)
         @test l isa L{Float64} && l isa Layer{Float64}
+        @test (l isa TubularLayer) != (l isa WireLayer)
         @test inner_radius(l) ≈ 9.5e-3 && outer_radius(l) ≈ 10.5e-3
         @test_throws ArgumentError L(10.0e-3, 0, 0.5e-3, 0.2, COPPER)
         @test_throws ArgumentError L(10.0e-3, 40, 0.0, 0.2, COPPER)
