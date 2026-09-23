@@ -1,11 +1,15 @@
+"""
+    CableLineModels
+
+Electrical and thermal models of power cables and lines, computed from their physical design.
+"""
 module CableLineModels
 
-"""
-    hi = hello_world()
-A simple function to return "Hello, World!"
-"""
-function hello_world()
-    return "Hello, World!"
-end
+export UnsupportedError
+export Material, numtype
+export COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON
+
+include("errors.jl")
+include("materials/materials.jl")
 
 end

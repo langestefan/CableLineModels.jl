@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning].
 
 ## [Unreleased]
 
-- Initial release
+### Added
+
+- `Material` type and a standard material library.
+- `UnsupportedError` for valid but unsupported input combinations.
 
 <!-- Links -->
 
