@@ -75,7 +75,7 @@ end
 
 @testitem "compute_ZY errors" tags = [:unit] setup = [Fixtures] begin
     sys = Fixtures.mv_system()
-    @test_throws "pending IEC 60287-1-1" compute_ZY(sys, IEC60287Method(), 50.0)
+    @test_throws "IEC60287Method at f > 0 is not implemented yet" compute_ZY(sys, IEC60287Method(), 50.0)
     @test_throws UnsupportedError compute_ZY(sys, LoopMethod(), [0.0, 50.0])
     @test_throws "must not be empty" compute_ZY(sys, LoopMethod(), Float64[])
     @test_throws "finite and ≥ 0" compute_ZY(sys, LoopMethod(), -50.0)

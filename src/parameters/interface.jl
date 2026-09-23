@@ -152,10 +152,6 @@ function compute_ZY(
     return ZYData(freqs, Z, Y, [m.label for m in metals], T_conductor, T_screen)
 end
 
-function _zy_ac(::CableSystem, ::IEC60287Method, _, _, _)
-    throw(UnsupportedError("IEC60287Method is pending IEC 60287-1-1", "use LoopMethod()"))
-end
-
 function _zy_ac(::CableSystem, method::ParameterMethod, _, _, _)
     throw(UnsupportedError("compute_ZY: $(nameof(typeof(method))) at f > 0 is not implemented yet"))
 end
