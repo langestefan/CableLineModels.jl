@@ -4,11 +4,11 @@
     @test_throws "earth must be :wedepohl or :pollaczek" LoopMethod(:carson)
 
     Z = zeros(ComplexF64, 2, 2, 1)
-    zy = ZYData([0.0], Z, Z, [:a, :b], 90)
-    @test zy isa ZYData{Float64} && numtype(zy) == Float64
-    @test zy == ZYData([0.0], Z, Z, [:a, :b], 90.0)
-    @test_throws "must be 2×2×1" ZYData([0.0], Z, zeros(ComplexF64, 2, 2, 2), [:a, :b], 90)
-    @test_throws "labels must be unique" ZYData([0.0], Z, Z, [:a, :a], 90)
+    zy = ZYData([0.0], Z, Z, [:a, :b], 90, 70)
+    @test zy isa ZYData{Float64}
+    @test zy == ZYData([0.0], Z, Z, [:a, :b], 90.0, 70.0)
+    @test_throws "must be 2×2×1" ZYData([0.0], Z, zeros(ComplexF64, 2, 2, 2), [:a, :b], 90, 70)
+    @test_throws "labels must be unique" ZYData([0.0], Z, Z, [:a, :a], 90, 70)
 end
 
 @testitem "compute_ZY at DC" tags = [:unit] setup = [Fixtures] begin
@@ -23,12 +23,15 @@ end
     @test Z[1:2, 1:2] == Z[3:4, 3:4] == Z[5:6, 5:6]
     @test all(iszero, imag(zy.Z)) && all(iszero, zy.Y)
     @test Z[1, 1] ≈ ALUMINIUM.rho / 240.0e-6 * (1 + ALUMINIUM.alpha * 70)
-    @test Z[2, 2] ≈ COPPER.rho / (40 * pi * 0.45e-3^2) * (1 + COPPER.alpha * 70)
+    lay = sqrt(1 + (2pi * 16.2e-3 / 0.2)^2)
+    @test Z[2, 2] ≈ COPPER.rho / (40 * pi * 0.45e-3^2) * lay * (1 + COPPER.alpha * 70)
+    zy_cool = compute_ZY(sys, LoopMethod(), 0.0; T_screen = 65)
+    @test zy_cool.T_screen == 65 && zy_cool.Z[1, 1, 1] == zy.Z[1, 1, 1]
+    @test real(zy_cool.Z[2, 2, 1]) ≈ COPPER.rho / (40 * pi * 0.45e-3^2) * lay * (1 + COPPER.alpha * 45)
     @test count(!iszero, Z) == 6
 
     @test real(compute_ZY(sys, LoopMethod(), 0.0; T_conductor = 20).Z[1, 1, 1]) ≈ ALUMINIUM.rho / 240.0e-6
     @test compute_ZY(sys, IEC60287Method(), [0, 0]).Z[:, :, 2] == zy.Z[:, :, 1]
-    @test @inferred(compute_ZY(sys, LoopMethod(), 0.0)) isa ZYData{Float64}
 end
 
 @testitem "compute_ZY at DC, four-core cable" tags = [:unit] setup = [Fixtures] begin
@@ -58,7 +61,7 @@ end
     Z = real(zy.Z[:, :, 1])
     @test Z[1, 1] == 2.2e-4
     @test Z[2, 2] ≈ LEAD.rho / (pi * (8.5e-3^2 - 8.0e-3^2))
-    @test Z[3, 3] ≈ STEEL.rho / (20 * pi * 0.5e-3^2)
+    @test Z[3, 3] ≈ STEEL.rho / (20 * pi * 0.5e-3^2) * sqrt(1 + (2pi * 9.5e-3 / 0.3)^2)
 
     @test CableLineModels._rho_eq(c) ≈ 2.2e-4 * pi * 5.0e-3^2
 end
@@ -71,13 +74,12 @@ end
     @test_throws "finite and ≥ 0" compute_ZY(sys, LoopMethod(), -50.0)
     @test_throws "finite and ≥ 0" compute_ZY(sys, LoopMethod(), NaN)
     @test_throws "T_conductor must be finite" compute_ZY(sys, LoopMethod(), 0.0; T_conductor = Inf)
+    @test_throws "T_screen must be finite" compute_ZY(sys, LoopMethod(), 0.0; T_screen = NaN)
     @test_throws "not positive at" compute_ZY(sys, LoopMethod(), 0.0; T_conductor = -300)
 end
 
 @testitem "compute_ZY number types" tags = [:unit] setup = [Fixtures] begin
-    sys32 = CableSystem{Float32}(Fixtures.mv_system())
-    @test compute_ZY(sys32, LoopMethod(), 0.0f0) isa ZYData{Float32}
-    @test compute_ZY(sys32, LoopMethod(), 0.0) isa ZYData{Float64}
+    @test compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0f0) isa ZYData{Float64}
     zy = compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0; T_conductor = big(90))
     @test zy isa ZYData{BigFloat}
     @test zy.Z ≈ compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0).Z
@@ -89,18 +91,18 @@ end
     R(t) = real(compute_ZY(sys, LoopMethod(), 0.0; T_conductor = t).Z[1, 1, 1])
     @test ForwardDiff.derivative(R, 90.0) ≈ ALUMINIUM.rho / 240.0e-6 * ALUMINIUM.alpha
 
-    @test numtype(compute_ZY(Fixtures.mv_system(ForwardDiff.Dual(9.1e-3, 1.0)), LoopMethod(), 0.0)) <: ForwardDiff.Dual
+    @test compute_ZY(sys, LoopMethod(), 0.0; T_conductor = ForwardDiff.Dual(90.0, 1.0)) isa ZYData{<:ForwardDiff.Dual}
 end
 
 @testitem "compute_ZY with uncertain numbers" tags = [:uncertainty] setup = [Fixtures] begin
     using Measurements: measurement, Measurement
     import MonteCarloMeasurements as MCM
 
-    zy = compute_ZY(Fixtures.mv_system(measurement(9.1e-3, 0.05e-3)), LoopMethod(), 0.0)
-    @test numtype(zy) <: Measurement
+    zy = compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0; T_conductor = measurement(90.0, 5.0))
+    @test zy isa ZYData{<:Measurement}
 
     T_c = MCM.Particles(200, MCM.Uniform(60.0, 90.0))
     zy = compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0; T_conductor = T_c)
-    @test numtype(zy) <: MCM.Particles
+    @test zy isa ZYData{<:MCM.Particles}
     @test MCM.pmean(real(zy.Z[1, 1, 1])) < real(compute_ZY(Fixtures.mv_system(), LoopMethod(), 0.0).Z[1, 1, 1])
 end

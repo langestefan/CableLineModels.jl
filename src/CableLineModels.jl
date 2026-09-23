@@ -6,7 +6,7 @@ Electrical and thermal models of power cables and lines, computed from their phy
 module CableLineModels
 
 export UnsupportedError
-export Material, numtype
+export Material
 export COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON
 export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
 export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket

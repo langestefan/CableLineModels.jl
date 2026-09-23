@@ -1,57 +1,40 @@
 """
-    PlacedCable{T<:Real}
+    PlacedCable(design, x, y, phases)
 
-A [`CableDesign`](@ref) at a position in the cross-section of a route.
+A [`CableDesign`](@ref) at a position in the cross-section of a route. `phases` is one
+`Symbol` per core, given as a vector, or a single `Symbol` for a single-core cable.
 
 # Fields
 
-  - `design::CableDesign{T}`
+  - `design::CableDesign`
   - `x::T`: horizontal position of the cable centre [m].
   - `y::T`: vertical position of the cable centre [m], negative below ground.
   - `phases::Vector{Symbol}`: phase of each core, in core order, e.g. `[:a]` or
     `[:a, :b, :c, :n]`.
 """
 struct PlacedCable{T <: Real}
-    design::CableDesign{T}
+    design::CableDesign
     x::T
     y::T
     phases::Vector{Symbol}
 
-    function PlacedCable{T}(design::CableDesign, x, y, phases) where {T <: Real}
+    function PlacedCable(
+            design::CableDesign, x::Real, y::Real, phases::Union{Symbol, AbstractVector{Symbol}},
+        )
         _check_finite("PlacedCable", (; x, y))
-        phases = _phase_vector(phases)
+        phases = phases isa Symbol ? [phases] : phases
         n = length(design.cores)
         length(phases) == n || throw(
             ArgumentError(
                 "PlacedCable: \"$(design.name)\" has $n core(s), got $(length(phases)) phase(s)",
             ),
         )
-        return new{T}(design, x, y, phases)
+        x, y = _floats(x, y)
+        return new{typeof(x)}(design, x, y, phases)
     end
 end
 
-const _Phases = Union{Symbol, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}}
-
-_phase_vector(p::Symbol) = [p]
-_phase_vector(p) = collect(Symbol, p)
-
-"""
-    PlacedCable(design, x, y, phases)
-
-Place `design` with its centre at (`x`, `y`) [m]. `phases` is one `Symbol` per core, given as
-a vector, a tuple, or a single `Symbol` for a single-core cable.
-"""
-function PlacedCable(design::CableDesign, x::Real, y::Real, phases::_Phases)
-    T = float(promote_type(numtype(design), typeof(x), typeof(y)))
-    return PlacedCable{T}(design, x, y, phases)
-end
-
-PlacedCable{T}(c::PlacedCable) where {T <: Real} = PlacedCable{T}(c.design, c.x, c.y, c.phases)
-
-numtype(::PlacedCable{T}) where {T} = T
-_placed_numtype(::AbstractVector{PlacedCable{T}}) where {T} = T
-_placed_numtype(v::AbstractVector{<:PlacedCable}) = _eltype_numtype(v)
-outer_radius(c::PlacedCable{T}) where {T} = outer_radius(c.design)::T
+outer_radius(c::PlacedCable) = outer_radius(c.design)
 
 """
     Bonding
@@ -89,7 +72,7 @@ struct CrossBonded <: Bonding
 end
 
 """
-    EarthModel{T<:Real}
+    EarthModel(; rho, k_th, T_ambient, eps_r = 1, mu_r = 1)
 
 Electrical and thermal properties of the soil around a [`CableSystem`](@ref).
 
@@ -108,43 +91,28 @@ struct EarthModel{T <: Real}
     k_th::T
     T_ambient::T
 
-    function EarthModel{T}(rho, eps_r, mu_r, k_th, T_ambient) where {T <: Real}
+    function EarthModel(; rho::Real, k_th::Real, T_ambient::Real, eps_r::Real = 1, mu_r::Real = 1)
         _check_finite("EarthModel", (; rho, eps_r, mu_r, k_th, T_ambient))
         rho > 0 || throw(ArgumentError("EarthModel: rho must be positive, got $rho"))
         eps_r >= 1 || throw(ArgumentError("EarthModel: eps_r must be ≥ 1, got $eps_r"))
         mu_r >= 1 || throw(ArgumentError("EarthModel: mu_r must be ≥ 1, got $mu_r"))
         k_th > 0 || throw(ArgumentError("EarthModel: k_th must be positive, got $k_th"))
-        return new{T}(rho, eps_r, mu_r, k_th, T_ambient)
+        values = _floats(rho, eps_r, mu_r, k_th, T_ambient)
+        return new{eltype(values)}(values...)
     end
 end
 
 """
-    EarthModel(; rho, k_th, T_ambient, eps_r = 1, mu_r = 1)
+    CableSystem(cables; earth, length, frequency, bonding = BothEnds())
 
-Keyword constructor. Units as in [`EarthModel`](@ref). All numbers are promoted to a common
-floating-point type.
-"""
-function EarthModel(; rho::Real, k_th::Real, T_ambient::Real, eps_r::Real = one(rho), mu_r::Real = one(rho))
-    T = _promote_numtype(rho, eps_r, mu_r, k_th, T_ambient)
-    return EarthModel{T}(rho, eps_r, mu_r, k_th, T_ambient)
-end
-
-EarthModel{T}(e::EarthModel) where {T <: Real} = EarthModel{T}(e.rho, e.eps_r, e.mu_r, e.k_th, e.T_ambient)
-Base.convert(::Type{EarthModel{T}}, e::EarthModel) where {T <: Real} = EarthModel{T}(e)
-Base.convert(::Type{EarthModel{T}}, e::EarthModel{T}) where {T <: Real} = e
-
-numtype(::EarthModel{T}) where {T} = T
-
-"""
-    CableSystem{T<:Real}
-
-Cables laid along one route, with their bonding and the surrounding earth.
+Cables laid along one route, with their bonding and the surrounding earth. `cables` is a
+vector of [`PlacedCable`](@ref), or a single one.
 
 # Fields
 
-  - `cables::Vector{PlacedCable{T}}`
+  - `cables::Vector{PlacedCable}`
   - `bonding::Bonding`: see [`Bonding`](@ref).
-  - `earth::EarthModel{T}`
+  - `earth::EarthModel`
   - `length::T`: route length [m].
   - `frequency::T`: nominal frequency [Hz], `0` for DC.
 
@@ -169,46 +137,28 @@ BothEnds()
 ```
 """
 struct CableSystem{T <: Real}
-    cables::Vector{PlacedCable{T}}
+    cables::Vector{PlacedCable}
     bonding::Bonding
-    earth::EarthModel{T}
+    earth::EarthModel
     length::T
     frequency::T
 
-    function CableSystem{T}(cables, bonding::Bonding, earth, length, frequency) where {T <: Real}
-        cables = PlacedCable{T}[PlacedCable{T}(c) for c in cables]
+    function CableSystem(
+            cables::AbstractVector{<:PlacedCable};
+            earth::EarthModel, length::Real, frequency::Real, bonding::Bonding = BothEnds(),
+        )
         isempty(cables) && throw(ArgumentError("CableSystem: needs at least one cable"))
         isfinite(length) && length > 0 ||
             throw(ArgumentError("CableSystem: length must be positive and finite, got $length"))
         isfinite(frequency) && frequency >= 0 ||
             throw(ArgumentError("CableSystem: frequency must be ≥ 0 and finite, got $frequency"))
         _check_placement(cables)
-        return new{T}(cables, bonding, earth, length, frequency)
+        length, frequency = _floats(length, frequency)
+        return new{typeof(length)}(cables, bonding, earth, length, frequency)
     end
 end
 
-"""
-    CableSystem(cables; earth, length, frequency, bonding = BothEnds())
-    CableSystem(cable::PlacedCable; kwargs...)
-
-Keyword constructor. `cables` is a vector of [`PlacedCable`](@ref), or a single one. Units as
-in [`CableSystem`](@ref). All numbers are promoted to a common floating-point type.
-"""
-function CableSystem(
-        cables::AbstractVector{<:PlacedCable};
-        earth::EarthModel, length::Real, frequency::Real, bonding::Bonding = BothEnds(),
-    )
-    T = float(promote_type(_placed_numtype(cables), numtype(earth), typeof(length), typeof(frequency)))
-    return CableSystem{T}(cables, bonding, earth, length, frequency)
-end
-
 CableSystem(cable::PlacedCable; kwargs...) = CableSystem([cable]; kwargs...)
-
-function CableSystem{T}(s::CableSystem) where {T <: Real}
-    return CableSystem{T}(s.cables, s.bonding, s.earth, s.length, s.frequency)
-end
-
-numtype(::CableSystem{T}) where {T} = T
 
 function _check_placement(cables)
     for (i, c) in enumerate(cables)

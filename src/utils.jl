@@ -1,9 +1,4 @@
-_numtype_of(x::Real) = typeof(x)
-_numtype_of(::Nothing) = Union{}
-_numtype_of(x) = numtype(x)
-_promote_numtype(xs...) = float(promote_type(map(_numtype_of, xs)...))
-
-_eltype_numtype(v::AbstractVector) = mapreduce(numtype, promote_type, v; init = Union{})
+_floats(xs...) = map(float, promote(xs...))
 
 function _check_finite(context, values::NamedTuple)
     for (field, x) in pairs(values)

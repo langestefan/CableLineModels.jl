@@ -2,28 +2,22 @@
     m = Material("test"; rho = 1, alpha = 0.004)
     @test m isa Material{Float64}
     @test m.eps_r == 1 && m.mu_r == 1 && m.tan_delta == 0 && m.k_th == 0
-    @test numtype(m) == Float64
 
-    m32 = Material("test32"; rho = 1.0f0)
-    @test m32 isa Material{Float32}
+    @test Material("test32"; rho = 1.0f0) isa Material{Float32}
     @test Material("mixed"; rho = 1, alpha = 0.004f0) isa Material{Float32}
-
-    big_m = Material{BigFloat}(COPPER)
-    @test big_m isa Material{BigFloat}
-    @test big_m.rho == BigFloat(COPPER.rho)
-    @test convert(Material{Float64}, COPPER) === COPPER
+    @test Material("big"; rho = big(1.0)) isa Material{BigFloat}
 
     @test @inferred(Material("x", 1.0, 0.0, 1.0, 1.0, 0.0, 0.0)) isa Material{Float64}
     @test @inferred(Material("x"; rho = 1.0f0)) isa Material{Float32}
 end
 
 @testitem "Material equality and hashing" tags = [:unit] begin
-    @test Material{BigFloat}(COPPER) == Material{BigFloat}(COPPER)
-    @test isequal(Material{BigFloat}(COPPER), Material{BigFloat}(COPPER))
-    @test hash(Material{BigFloat}(COPPER)) == hash(Material{BigFloat}(COPPER))
+    big_copper() = Material("copper"; rho = big(1.7241e-8), alpha = 3.93e-3)
+    @test big_copper() == big_copper() && isequal(big_copper(), big_copper())
+    @test hash(big_copper()) == hash(big_copper())
     @test Material("copper"; rho = 1.7241e-8, alpha = 3.93e-3) == COPPER
     @test COPPER != ALUMINIUM
-    @test length(Set([COPPER, Material{Float64}(COPPER), ALUMINIUM])) == 2
+    @test length(Set([COPPER, Material("copper"; rho = 1.7241e-8, alpha = 3.93e-3), ALUMINIUM])) == 2
 end
 
 @testitem "Material display" tags = [:unit] begin
@@ -39,7 +33,7 @@ end
     f(rho) = Material("d"; rho, alpha = 3.93e-3).rho * 2
     @test ForwardDiff.derivative(f, 1.0) == 2
     m = Material("d"; rho = ForwardDiff.Dual(1.0, 1.0), alpha = 3.93e-3)
-    @test numtype(m) <: ForwardDiff.Dual
+    @test m.alpha isa ForwardDiff.Dual
 end
 
 @testitem "Material validation" tags = [:unit] begin

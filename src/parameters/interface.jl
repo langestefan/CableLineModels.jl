@@ -43,7 +43,8 @@ Per-unit-length impedance and admittance matrices of every metallic conductor of
   - `Z::Array{Complex{T},3}`: series impedance [Ω/m], `n × n × length(freqs)`.
   - `Y::Array{Complex{T},3}`: shunt admittance [S/m], `n × n × length(freqs)`.
   - `labels::Vector{Symbol}`: name of each of the `n` conductors, see [`compute_ZY`](@ref).
-  - `T_conductor::T`: temperature used for the resistivities [°C].
+  - `T_conductor::T`: temperature of the core conductors [°C].
+  - `T_screen::T`: temperature of the screens, sheaths and armour [°C].
 """
 struct ZYData{T <: Real}
     freqs::Vector{T}
@@ -51,8 +52,9 @@ struct ZYData{T <: Real}
     Y::Array{Complex{T}, 3}
     labels::Vector{Symbol}
     T_conductor::T
+    T_screen::T
 
-    function ZYData{T}(freqs, Z, Y, labels, T_conductor) where {T <: Real}
+    function ZYData{T}(freqs, Z, Y, labels, T_conductor, T_screen) where {T <: Real}
         dims = (length(labels), length(labels), length(freqs))
         size(Z) == dims && size(Y) == dims || throw(
             ArgumentError(
@@ -61,24 +63,32 @@ struct ZYData{T <: Real}
             ),
         )
         allunique(labels) || throw(ArgumentError("ZYData: labels must be unique"))
-        return new{T}(freqs, Z, Y, labels, T_conductor)
+        return new{T}(freqs, Z, Y, labels, T_conductor, T_screen)
     end
 end
 
-function ZYData(freqs::AbstractVector{<:Real}, Z::AbstractArray, Y::AbstractArray, labels, T_conductor::Real)
-    T = float(promote_type(eltype(freqs), real(eltype(Z)), real(eltype(Y)), typeof(T_conductor)))
-    return ZYData{T}(freqs, Z, Y, labels, T_conductor)
+function ZYData(
+        freqs::AbstractVector{<:Real}, Z::AbstractArray, Y::AbstractArray, labels,
+        T_conductor::Real, T_screen::Real,
+    )
+    T = float(
+        promote_type(
+            eltype(freqs), real(eltype(Z)), real(eltype(Y)), typeof(T_conductor), typeof(T_screen),
+        ),
+    )
+    return ZYData{T}(freqs, Z, Y, labels, T_conductor, T_screen)
 end
 
-numtype(::ZYData{T}) where {T} = T
-
 """
-    compute_ZY(sys::CableSystem, method::ParameterMethod, freqs; T_conductor = 90) -> ZYData
+    compute_ZY(sys::CableSystem, method::ParameterMethod, freqs;
+               T_conductor = 90, T_screen = T_conductor) -> ZYData
 
 Series impedance and shunt admittance matrices of every metallic conductor of `sys`, per
-unit length, at the frequencies `freqs` [Hz] (a number or a vector). Resistivities of all
-metallic layers are taken at `T_conductor` [°C]. The result has the number type of `sys`,
-`freqs` and `T_conductor` combined.
+unit length, at the frequencies `freqs` [Hz] (a number or a vector). Resistivities are
+taken at `T_conductor` [°C] for the core conductors and at `T_screen` [°C] for screens,
+sheaths and armour, as in IEC 60287-1-1, 5.1.2 and 5.3.1. The screen runs cooler than the
+conductor; IEC 60287-1-1 computes its temperature from the thermal model. The number type
+of the result is the common floating-point type of all numbers involved.
 
 Every metallic layer is a separate conductor, ordered by cable, then by core from the
 conductor outwards, then the common layers of the cable. Labels are `:c<i>_core`,
@@ -93,9 +103,12 @@ At `f = 0`, `Z` is diagonal with the DC resistances
 ``R_{dc}(T) = R_{dc,20}\\,[1 + \\alpha (T - 20)]``
 
 where ``R_{dc,20}`` is the conductor's `R_dc20`, or else `rho / area_nominal`; for a
-tubular screen `rho` over its annulus area, and for a wire layer `rho` over the total wire
-area. `Y` is zero: the leakage conductance of the insulation is negligible for network
-models (about 1e-16 S/m for XLPE) and too uncertain to be worth modelling, because the DC
+tubular screen `rho` over its annulus area; and for a wire layer `rho` over the total wire
+area, times the lay factor ``\\sqrt{1 + (2\\pi r_{mean} / L)^2}`` for the extra length of
+the helical wires (`L` the lay length).
+
+`Y` is zero: the leakage conductance of the insulation is negligible for network models
+(about 1e-16 S/m for XLPE) and too uncertain to be worth modelling, because the DC
 conductivity of insulation depends strongly on temperature and electric field.
 
 # Example
@@ -118,39 +131,31 @@ julia> real(zy.Z[1, 1, 1]) ≈ COPPER.rho / 78.5e-6
 true
 ```
 """
-function compute_ZY(sys::CableSystem, method::ParameterMethod, freqs; T_conductor::Real = 90)
-    T = float(promote_type(numtype(sys), _freqs_numtype(freqs), typeof(T_conductor)))
-    return _compute_ZY(sys, method, _freq_vector(T, freqs), convert(T, T_conductor))
-end
-
-_freqs_numtype(f::Real) = typeof(f)
-_freqs_numtype(f::AbstractVector{<:Real}) = eltype(f)
-_freq_vector(::Type{T}, f::Real) where {T} = T[f]
-_freq_vector(::Type{T}, f::AbstractVector{<:Real}) where {T} = collect(T, f)
-
-function _compute_ZY(sys::CableSystem, method::ParameterMethod, freqs::Vector{T}, T_conductor::T) where {T}
+function compute_ZY(
+        sys::CableSystem, method::ParameterMethod, freqs;
+        T_conductor::Real = 90, T_screen::Real = T_conductor,
+    )
+    freqs = float.(vcat(freqs))
     isempty(freqs) && throw(ArgumentError("compute_ZY: freqs must not be empty"))
     for f in freqs
         isfinite(f) && f >= 0 ||
             throw(ArgumentError("compute_ZY: frequencies must be finite and ≥ 0, got $f"))
     end
-    _check_finite("compute_ZY", (; T_conductor))
+    _check_finite("compute_ZY", (; T_conductor, T_screen))
     metals = _system_metals(sys)
-    n = length(metals)
-    Z = zeros(Complex{T}, n, n, length(freqs))
-    Y = zeros(Complex{T}, n, n, length(freqs))
-    for (k, f) in enumerate(freqs)
-        Zk, Yk = iszero(f) ? _zy_dc(metals, T_conductor) : _zy_ac(sys, method, f, T_conductor)
-        Z[:, :, k] = Zk
-        Y[:, :, k] = Yk
-    end
-    return ZYData{T}(freqs, Z, Y, [m.label for m in metals], T_conductor)
+    blocks = [
+        iszero(f) ? _zy_dc(metals, T_conductor, T_screen) : _zy_ac(sys, method, f, T_conductor, T_screen)
+            for f in freqs
+    ]
+    Z = stack(first.(blocks))
+    Y = stack(last.(blocks))
+    return ZYData(freqs, Z, Y, [m.label for m in metals], T_conductor, T_screen)
 end
 
-function _zy_ac(::CableSystem, ::IEC60287Method, _, _)
+function _zy_ac(::CableSystem, ::IEC60287Method, _, _, _)
     throw(UnsupportedError("IEC60287Method is pending IEC 60287-1-1", "use LoopMethod()"))
 end
 
-function _zy_ac(::CableSystem, method::ParameterMethod, _, _)
+function _zy_ac(::CableSystem, method::ParameterMethod, _, _, _)
     throw(UnsupportedError("compute_ZY: $(nameof(typeof(method))) at f > 0 is not implemented yet"))
 end

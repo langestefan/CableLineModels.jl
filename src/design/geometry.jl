@@ -12,16 +12,12 @@ struct Annulus{T <: Real}
     r_in::T
     r_out::T
 
-    function Annulus{T}(r_in, r_out) where {T <: Real}
+    function Annulus(r_in::Real, r_out::Real)
         _check_annulus("Annulus", r_in, r_out)
-        return new{T}(r_in, r_out)
+        values = _floats(r_in, r_out)
+        return new{eltype(values)}(values...)
     end
 end
-
-Annulus(r_in::Real, r_out::Real) = Annulus{_promote_numtype(r_in, r_out)}(r_in, r_out)
-Annulus{T}(g::Annulus) where {T <: Real} = Annulus{T}(g.r_in, g.r_out)
-Base.convert(::Type{Annulus{T}}, g::Annulus) where {T <: Real} = Annulus{T}(g)
-Base.convert(::Type{Annulus{T}}, g::Annulus{T}) where {T <: Real} = g
 
 """
     WireGeometry{T<:Real}
@@ -41,25 +37,12 @@ struct WireGeometry{T <: Real}
     r_wire::T
     lay_length::T
 
-    function WireGeometry{T}(r_mean, n_wires::Integer, r_wire, lay_length) where {T <: Real}
+    function WireGeometry(r_mean::Real, n_wires::Integer, r_wire::Real, lay_length::Real)
         _check_wire_geometry("WireGeometry", r_mean, n_wires, r_wire, lay_length)
-        return new{T}(r_mean, n_wires, r_wire, lay_length)
+        r_mean, r_wire, lay_length = _floats(r_mean, r_wire, lay_length)
+        return new{typeof(r_mean)}(r_mean, n_wires, r_wire, lay_length)
     end
 end
-
-function WireGeometry(r_mean::Real, n_wires::Integer, r_wire::Real, lay_length::Real)
-    T = _promote_numtype(r_mean, r_wire, lay_length)
-    return WireGeometry{T}(r_mean, n_wires, r_wire, lay_length)
-end
-
-function WireGeometry{T}(g::WireGeometry) where {T <: Real}
-    return WireGeometry{T}(g.r_mean, g.n_wires, g.r_wire, g.lay_length)
-end
-Base.convert(::Type{WireGeometry{T}}, g::WireGeometry) where {T <: Real} = WireGeometry{T}(g)
-Base.convert(::Type{WireGeometry{T}}, g::WireGeometry{T}) where {T <: Real} = g
-
-numtype(::Annulus{T}) where {T} = T
-numtype(::WireGeometry{T}) where {T} = T
 
 """
     inner_radius(x)

@@ -37,11 +37,13 @@ end
 
 # At DC there is no inductive or capacitive coupling, so Z is diagonal with the DC
 # resistances and Y is zero.
-function _zy_dc(metals, T_conductor::T) where {T}
+function _zy_dc(metals, T_conductor, T_screen)
+    R = [_R_dc(m.element, T_conductor, T_screen) for m in metals]
+    T = float(mapreduce(typeof, promote_type, R))
     n = length(metals)
     Z = zeros(Complex{T}, n, n)
-    for (i, m) in enumerate(metals)
-        Z[i, i] = _R_dc(m.element, T_conductor)
+    for i in 1:n
+        Z[i, i] = R[i]
     end
     return Z, zeros(Complex{T}, n, n)
 end

@@ -44,19 +44,21 @@ struct Milliken <: ConductorShape
 end
 
 """
-    Conductor{T<:Real,S<:ConductorShape}
+    Conductor(shape, material; r_out, area_nominal, r_in = 0, R_dc20 = nothing)
 
 Central conductor of a cable core.
 
 # Fields
 
-  - `shape::S`: construction, see [`ConductorShape`](@ref).
+  - `shape::ConductorShape`: construction, see [`ConductorShape`](@ref).
   - `r_in::T`: inner radius [m]; `0` for a full conductor, `> 0` for a hollow one (oil duct).
   - `r_out::T`: outer radius [m].
   - `area_nominal::T`: nominal cross-section [m²].
-  - `material::Material{T}`: conductor material.
+  - `material::Material`: conductor material.
   - `R_dc20::Union{T,Nothing}`: DC resistance at 20 °C [Ω/m], overriding the value derived
     from the material; `nothing` to derive it.
+
+The numbers are promoted to a common floating-point type `T`; the material keeps its own.
 
 # Example
 
@@ -67,17 +69,18 @@ julia> c.r_in
 0.0
 ```
 """
-struct Conductor{T <: Real, S <: ConductorShape}
-    shape::S
+struct Conductor{T <: Real}
+    shape::ConductorShape
     r_in::T
     r_out::T
     area_nominal::T
-    material::Material{T}
+    material::Material
     R_dc20::Union{T, Nothing}
 
-    function Conductor{T}(
-            shape::S, r_in, r_out, area_nominal, material::Material, R_dc20,
-        ) where {T <: Real, S <: ConductorShape}
+    function Conductor(
+            shape::ConductorShape, material::Material;
+            r_out::Real, area_nominal::Real, r_in::Real = 0, R_dc20::Union{Real, Nothing} = nothing,
+        )
         _check_finite("Conductor", (; r_in, r_out, area_nominal))
         r_in >= 0 && r_out - r_in > 0 || throw(
             ArgumentError("Conductor: need 0 ≤ r_in < r_out, got r_in = $r_in, r_out = $r_out"),
@@ -88,28 +91,10 @@ struct Conductor{T <: Real, S <: ConductorShape}
             isfinite(R_dc20) && R_dc20 > 0 ||
                 throw(ArgumentError("Conductor: R_dc20 must be positive and finite, got $R_dc20"))
         end
-        return new{T, S}(shape, r_in, r_out, area_nominal, material, R_dc20)
+        r_in, r_out, area_nominal, R = _floats(r_in, r_out, area_nominal, something(R_dc20, r_out))
+        return new{typeof(r_out)}(shape, r_in, r_out, area_nominal, material, R_dc20 === nothing ? nothing : R)
     end
 end
 
-"""
-    Conductor(shape, material; r_out, area_nominal, r_in = 0, R_dc20 = nothing)
-
-Keyword constructor. Units as in [`Conductor`](@ref). All numbers, including the material
-fields, are promoted to a common floating-point type.
-"""
-function Conductor(
-        shape::ConductorShape, material::Material;
-        r_out, area_nominal, r_in = zero(r_out), R_dc20 = nothing,
-    )
-    T = _promote_numtype(r_in, r_out, area_nominal, material, R_dc20)
-    return Conductor{T}(shape, r_in, r_out, area_nominal, material, R_dc20)
-end
-
-function Conductor{T}(c::Conductor) where {T <: Real}
-    return Conductor{T}(c.shape, c.r_in, c.r_out, c.area_nominal, c.material, c.R_dc20)
-end
-
-numtype(::Conductor{T}) where {T} = T
 inner_radius(c::Conductor) = c.r_in
 outer_radius(c::Conductor) = c.r_out

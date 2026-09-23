@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning].
 - Cable system types: `PlacedCable`, `EarthModel`, bonding (`BothEnds`, `SinglePoint`,
   `CrossBonded`) and `CableSystem`.
 - Parameter interface: `ParameterMethod`, `IEC60287Method`, `LoopMethod`, `ZYData` and
-  `compute_ZY`, with DC resistance and leakage conductance at `f = 0`.
+  `compute_ZY`, with DC resistances at `f = 0` (separate conductor and screen temperatures,
+  lay factor for wire screens and armour).
 
 <!-- Links -->
 

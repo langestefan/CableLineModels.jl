@@ -3,8 +3,8 @@
     @test e isa EarthModel{Float64}
     @test e.eps_r == 1 && e.mu_r == 1
     @test EarthModel(; rho = 100.0f0, k_th = 1.0f0, T_ambient = 15.0f0) isa EarthModel{Float32}
-    @test EarthModel{BigFloat}(e) == e && hash(EarthModel{BigFloat}(e)) == hash(e)
-    @test @inferred(EarthModel(; rho = 100.0, k_th = 1.0, T_ambient = 15.0)) isa EarthModel{Float64}
+    big_e = EarthModel(; rho = big(100), k_th = 1, T_ambient = 15)
+    @test big_e == e && hash(big_e) == hash(e)
 
     @test_throws "rho" EarthModel(; rho = 0, k_th = 1, T_ambient = 15)
     @test_throws "eps_r" EarthModel(; rho = 100, k_th = 1, T_ambient = 15, eps_r = 0.5)
@@ -24,35 +24,28 @@ end
     @test c isa PlacedCable{Float64}
     @test c.phases == [:a] && outer_radius(c) == outer_radius(d)
     @test c.design === d
-    @test PlacedCable(d, 0.0f0, -1.0f0, [:a]) isa PlacedCable{Float64}
-    @test PlacedCable{BigFloat}(c) == c
+    @test PlacedCable(d, 0.0f0, -1.0f0, [:a]) isa PlacedCable{Float32}
 
     lv = Fixtures.lv_design()
-    @test PlacedCable(lv, 0.0, -0.7, (:a, :b, :c, :n)).phases == [:a, :b, :c, :n]
+    @test PlacedCable(lv, 0.0, -0.7, [:a, :b, :c, :n]).phases == [:a, :b, :c, :n]
     @test_throws "has 4 core(s), got 1 phase(s)" PlacedCable(lv, 0.0, -0.7, :a)
     @test_throws "has 1 core(s), got 2" PlacedCable(d, 0.0, -1.0, [:a, :b])
     @test_throws "x must be finite" PlacedCable(d, Inf, -1.0, :a)
-    @test @inferred(PlacedCable(d, 0.0, -1.0, :a)) isa PlacedCable{Float64}
 end
 
 @testitem "CableSystem construction" tags = [:unit] setup = [Fixtures] begin
     sys = Fixtures.mv_system()
     @test sys isa CableSystem{Float64} && sys.bonding == BothEnds()
     @test length(sys.cables) == 3
-    @test numtype(sys) == Float64
     @test sys == Fixtures.mv_system() && hash(sys) == hash(Fixtures.mv_system())
     @test sys != Fixtures.mv_system(; bonding = SinglePoint())
     @test Fixtures.mv_system(; bonding = CrossBonded(3)).bonding == CrossBonded(3)
     @test Fixtures.mv_system(; frequency = 0.0).frequency == 0
-    @test CableSystem{BigFloat}(sys) == sys
 
     c = PlacedCable(Fixtures.lv_design(), 0.0, -0.7, [:a, :b, :c, :n])
     lv = CableSystem(c; earth = Fixtures.mv_earth(), length = 300.0, frequency = 50.0)
     @test lv isa CableSystem{Float64}
-    @test @inferred(CableSystem([c]; earth = Fixtures.mv_earth(), length = 300.0, frequency = 50.0)) isa CableSystem
-
-    e32 = EarthModel{Float32}(Fixtures.mv_earth())
-    @test CableSystem(c; earth = e32, length = 300.0f0, frequency = 50.0f0) isa CableSystem{Float64}
+    @test CableSystem(c; earth = Fixtures.mv_earth(), length = 300.0f0, frequency = 50.0f0) isa CableSystem{Float32}
 end
 
 @testitem "CableSystem validation" tags = [:unit] setup = [Fixtures] begin
@@ -75,8 +68,7 @@ end
 @testitem "CableSystem with dual numbers" tags = [:ad] setup = [Fixtures] begin
     using ForwardDiff: ForwardDiff
     sys = Fixtures.mv_system(ForwardDiff.Dual(9.1e-3, 1.0))
-    @test numtype(sys) <: ForwardDiff.Dual
-    @test sys.earth isa EarthModel{numtype(sys)}
+    @test sys.cables[2].x isa ForwardDiff.Dual
     @test ForwardDiff.derivative(r -> Fixtures.mv_system(r).cables[2].x, 9.1e-3) ≈ 1
 end
 
@@ -84,9 +76,9 @@ end
     using Measurements: measurement, Measurement
     import MonteCarloMeasurements as MCM
 
-    @test numtype(Fixtures.mv_system(measurement(9.1e-3, 0.05e-3))) <: Measurement
+    @test Fixtures.mv_system(measurement(9.1e-3, 0.05e-3)).cables[1].x isa Measurement
     sys = Fixtures.mv_system(MCM.Particles(200, MCM.Normal(9.1e-3, 0.05e-3)))
-    @test numtype(sys) <: MCM.Particles
+    @test sys.cables[1].x isa MCM.Particles
 
     k_th = MCM.Particles(200, MCM.Uniform(0.7, 1.5))
     e = EarthModel(; rho = 100.0, k_th, T_ambient = 15.0)

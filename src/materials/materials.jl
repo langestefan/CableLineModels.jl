@@ -13,8 +13,9 @@ Electrical and thermal properties of a cable material.
   - `tan_delta::T`: dielectric loss factor [-].
   - `k_th::T`: thermal resistivity [K·m/W].
 
-All numeric fields must be finite. They are promoted to a common type, so any `Real` subtype
-can be used, including `ForwardDiff.Dual` and number types carrying uncertainty.
+All numeric fields must be finite. They are promoted to a common floating-point type, so any
+`Real` subtype can be used, including `ForwardDiff.Dual` and number types carrying
+uncertainty.
 
 # Example
 
@@ -34,58 +35,34 @@ struct Material{T <: Real}
     tan_delta::T
     k_th::T
 
-    function Material{T}(name, rho, alpha, eps_r, mu_r, tan_delta, k_th) where {T <: Real}
-        for (field, x) in (
-                (:rho, rho), (:alpha, alpha), (:eps_r, eps_r), (:mu_r, mu_r),
-                (:tan_delta, tan_delta), (:k_th, k_th),
-            )
-            isfinite(x) || throw(ArgumentError("material $name: $field must be finite, got $x"))
-        end
+    function Material(
+            name::AbstractString, rho::Real, alpha::Real, eps_r::Real, mu_r::Real,
+            tan_delta::Real, k_th::Real,
+        )
+        _check_finite("material $name", (; rho, alpha, eps_r, mu_r, tan_delta, k_th))
         rho > 0 || throw(ArgumentError("material $name: rho must be positive, got $rho"))
         eps_r >= 1 || throw(ArgumentError("material $name: eps_r must be ≥ 1, got $eps_r"))
         mu_r >= 1 || throw(ArgumentError("material $name: mu_r must be ≥ 1, got $mu_r"))
         tan_delta >= 0 ||
             throw(ArgumentError("material $name: tan_delta must be ≥ 0, got $tan_delta"))
         k_th >= 0 || throw(ArgumentError("material $name: k_th must be ≥ 0, got $k_th"))
-        return new{T}(name, rho, alpha, eps_r, mu_r, tan_delta, k_th)
+        values = _floats(rho, alpha, eps_r, mu_r, tan_delta, k_th)
+        return new{eltype(values)}(String(name), values...)
     end
-end
-
-function Material(name::AbstractString, rho, alpha, eps_r, mu_r, tan_delta, k_th)
-    T = float(promote_type(map(typeof, (rho, alpha, eps_r, mu_r, tan_delta, k_th))...))
-    return Material{T}(String(name), rho, alpha, eps_r, mu_r, tan_delta, k_th)
 end
 
 """
     Material(name; rho, alpha = 0, eps_r = 1, mu_r = 1, tan_delta = 0, k_th = 0)
 
-Keyword constructor. Units as in [`Material`](@ref). Defaults take the number type of `rho`.
+Keyword constructor. Units as in [`Material`](@ref).
 """
 function Material(
         name::AbstractString;
-        rho,
-        alpha = zero(rho),
-        eps_r = one(rho),
-        mu_r = one(rho),
-        tan_delta = zero(rho),
-        k_th = zero(rho),
+        rho::Real, alpha::Real = 0, eps_r::Real = 1, mu_r::Real = 1, tan_delta::Real = 0,
+        k_th::Real = 0,
     )
     return Material(name, rho, alpha, eps_r, mu_r, tan_delta, k_th)
 end
-
-function Material{T}(m::Material) where {T <: Real}
-    return Material{T}(m.name, m.rho, m.alpha, m.eps_r, m.mu_r, m.tan_delta, m.k_th)
-end
-
-Base.convert(::Type{Material{T}}, m::Material) where {T <: Real} = Material{T}(m)
-Base.convert(::Type{Material{T}}, m::Material{T}) where {T <: Real} = m
-
-"""
-    numtype(x)
-
-Number type `T` of a parametric model object, e.g. `Float64` for `Material{Float64}`.
-"""
-numtype(::Material{T}) where {T} = T
 
 function Base.show(io::IO, m::Material)
     return print(io, "Material(\"", m.name, "\")")
