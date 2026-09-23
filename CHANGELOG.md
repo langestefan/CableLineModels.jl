@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning].
 
 ### Added
 
-- `Material` type and a standard material library.
+- `Material` type and a standard material library, including `ALUMINIUM_SHEATH`.
 - `UnsupportedError` for valid but unsupported input combinations.
 - Cable design types: conductor shapes, `Conductor`, layers, `CableCore`, `CableDesign`
   (`SingleCore`, `FourCoreLV`), with geometry validation.
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning].
   `CrossBonded`) and `CableSystem`.
 - Parameter interface: `ParameterMethod`, `IEC60287Method`, `LoopMethod`, `ZYData` and
   `compute_ZY`, with DC resistances at `f = 0` (separate conductor and screen temperatures,
-  lay factor for wire screens and armour).
+  lay factor for wire screens and armour, lay-up factor for four-core cables).
 
 <!-- Links -->
 

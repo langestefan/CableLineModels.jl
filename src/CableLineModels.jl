@@ -7,7 +7,7 @@ module CableLineModels
 
 export UnsupportedError
 export Material
-export COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON
+export COPPER, ALUMINIUM, ALUMINIUM_SHEATH, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON
 export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
 export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
 export CableCore, CoreLayout, SingleCore, FourCoreLV, CableDesign

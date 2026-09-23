@@ -49,12 +49,13 @@ end
 
 @testitem "Standard material library" tags = [:unit] begin
     lib = (
-        COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED, SEMICON,
+        COPPER, ALUMINIUM, ALUMINIUM_SHEATH, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL,
+        MASS_IMPREGNATED, SEMICON,
     )
     @test all(m -> m isa Material{Float64}, lib)
     @test allunique(m.name for m in lib)
 
-    @test all(m.rho < 1.0e-6 for m in (COPPER, ALUMINIUM, LEAD, STEEL))
+    @test all(m.rho < 1.0e-6 for m in (COPPER, ALUMINIUM, ALUMINIUM_SHEATH, LEAD, STEEL))
     @test all(m.rho > 1.0e10 for m in (XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED))
     @test STEEL.mu_r > 1
 end

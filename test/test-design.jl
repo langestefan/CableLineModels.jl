@@ -134,7 +134,9 @@ end
     @test_throws "layer 1 (Jacket)" CableDesign(
         "x", fill(core, 4), FourCoreLV(10.5e-3); U0 = 600.0, common_layers = [Jacket(17.0e-3, 20.0e-3, PVC)],
     )
-    @test FourCoreLV(1) isa FourCoreLV{Float64}
+    @test FourCoreLV(1) isa FourCoreLV{Float64} && FourCoreLV(1).lay_length === nothing
+    @test FourCoreLV(1.0f0; lay_length = 1).lay_length === 1.0f0
+    @test_throws "lay_length must be positive" FourCoreLV(1.0; lay_length = 0.0)
 end
 
 @testitem "Design types with dual numbers" tags = [:ad] setup = [Fixtures] begin

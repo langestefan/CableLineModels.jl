@@ -101,6 +101,14 @@ Lead (alloy) sheath material.
 const LEAD = Material("lead"; rho = 21.4e-8, alpha = 4.0e-3)
 
 """
+    ALUMINIUM_SHEATH
+
+Aluminium sheath material. Its resistivity differs slightly from that of aluminium
+conductors ([`ALUMINIUM`](@ref)).
+"""
+const ALUMINIUM_SHEATH = Material("aluminium sheath"; rho = 2.84e-8, alpha = 4.03e-3)
+
+"""
     STEEL
 
 Steel armour material, with a typical relative permeability for armour wires. `mu_r`

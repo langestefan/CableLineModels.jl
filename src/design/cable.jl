@@ -60,24 +60,42 @@ One core on the cable axis.
 struct SingleCore <: CoreLayout end
 
 """
-    FourCoreLV(r_center)
+    FourCoreLV(r_center; lay_length = nothing)
 
 Four cores at 90° spacing, each with its centre at distance `r_center` [m] from the cable
-axis. Used for low-voltage cables with three phases and a neutral.
+axis. Used for low-voltage cables with three phases and a neutral. `lay_length` [m] is the
+axial length over which the cores make one full helical turn; `nothing` for straight cores.
+Laid-up cores are longer than the cable, which increases their resistance per metre of
+cable by the factor of IEC 60287-1-1, Annex A.
 """
 struct FourCoreLV{T <: Real} <: CoreLayout
     r_center::T
+    lay_length::Union{T, Nothing}
 
-    function FourCoreLV(r_center::Real)
+    function FourCoreLV(r_center::Real; lay_length::Union{Real, Nothing} = nothing)
         isfinite(r_center) && r_center > 0 || throw(
             ArgumentError("FourCoreLV: r_center must be positive and finite, got $r_center"),
         )
-        return new{typeof(float(r_center))}(r_center)
+        if lay_length !== nothing
+            isfinite(lay_length) && lay_length > 0 || throw(
+                ArgumentError("FourCoreLV: lay_length must be positive and finite, got $lay_length"),
+            )
+        end
+        r_center, L = _floats(r_center, something(lay_length, r_center))
+        return new{typeof(r_center)}(r_center, lay_length === nothing ? nothing : L)
     end
 end
 
 _n_cores(::SingleCore) = 1
 _n_cores(::FourCoreLV) = 4
+
+_lay_up_factor(::SingleCore, _) = 1
+
+function _lay_up_factor(l::FourCoreLV, core::CableCore)
+    l.lay_length === nothing && return 1
+    C_fL = 1.53
+    return sqrt(1 + (pi * C_fL * 2 * outer_radius(core) / l.lay_length)^2)
+end
 
 _cores_radius(::SingleCore, cores) = outer_radius(only(cores))
 _cores_radius(l::FourCoreLV, cores) = l.r_center + maximum(outer_radius, cores)

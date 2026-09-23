@@ -39,7 +39,14 @@ end
     sys = CableSystem(c; earth = Fixtures.mv_earth(), length = 300.0, frequency = 50.0)
     zy = compute_ZY(sys, LoopMethod(), 0.0)
     @test zy.labels == [:c1_core1, :c1_core2, :c1_core3, :c1_core4]
-    @test real(zy.Z[4, 4, 1]) ≈ COPPER.rho / 95.0e-6 * (1 + COPPER.alpha * 70)
+    R_straight = COPPER.rho / 95.0e-6 * (1 + COPPER.alpha * 70)
+    @test real(zy.Z[4, 4, 1]) ≈ R_straight
+
+    d = Fixtures.lv_design()
+    laid = CableDesign(d.name, d.cores, FourCoreLV(10.5e-3; lay_length = 0.5); U0 = d.U0, common_layers = d.common_layers)
+    sys_laid = CableSystem(PlacedCable(laid, 0.0, -0.7, [:a, :b, :c, :n]); earth = Fixtures.mv_earth(), length = 300.0, frequency = 50.0)
+    C_LL = sqrt(1 + (pi * 1.53 * 14.8e-3 / 0.5)^2)
+    @test real(compute_ZY(sys_laid, LoopMethod(), 0.0).Z[4, 4, 1]) ≈ R_straight * C_LL
 end
 
 @testitem "compute_ZY with a sheath and armour" tags = [:unit] begin
