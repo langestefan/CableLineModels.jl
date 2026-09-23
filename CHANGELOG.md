@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning].
 
 - `Material` type and a standard material library.
 - `UnsupportedError` for valid but unsupported input combinations.
+- Cable design types: conductor shapes, `Conductor`, layers, `CableCore`, `CableDesign`
+  (`SingleCore`, `FourCoreLV`), with geometry validation.
 
 <!-- Links -->
 

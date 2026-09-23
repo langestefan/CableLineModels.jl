@@ -60,7 +60,6 @@ end
     @test all(m -> m isa Material{Float64}, lib)
     @test allunique(m.name for m in lib)
 
-    # Metals conduct many orders of magnitude better than insulation.
     @test all(m.rho < 1.0e-6 for m in (COPPER, ALUMINIUM, LEAD, STEEL))
     @test all(m.rho > 1.0e10 for m in (XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNATED))
     @test STEEL.mu_r > 1

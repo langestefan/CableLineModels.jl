@@ -87,12 +87,6 @@ Number type `T` of a parametric model object, e.g. `Float64` for `Material{Float
 """
 numtype(::Material{T}) where {T} = T
 
-_fields(m::Material) = (m.name, m.rho, m.alpha, m.eps_r, m.mu_r, m.tan_delta, m.k_th)
-
-Base.:(==)(a::Material, b::Material) = _fields(a) == _fields(b)
-Base.isequal(a::Material, b::Material) = isequal(_fields(a), _fields(b))
-Base.hash(m::Material, h::UInt) = hash(_fields(m), hash(Material, h))
-
 function Base.show(io::IO, m::Material)
     return print(io, "Material(\"", m.name, "\")")
 end
