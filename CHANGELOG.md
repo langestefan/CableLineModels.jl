@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning].
 - `UnsupportedError` for valid but unsupported input combinations.
 - Cable design types: conductor shapes, `Conductor`, layers, `CableCore`, `CableDesign`
   (`SingleCore`, `FourCoreLV`), with geometry validation.
+- Cable system types: `PlacedCable`, `EarthModel`, installations (`DirectBuried`, `InDuct`),
+  bonding (`BothEnds`, `SinglePoint`, `CrossBonded`), `Compensation` and `CableSystem`.
 
 <!-- Links -->
 

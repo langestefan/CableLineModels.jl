@@ -1,4 +1,7 @@
-const _ValueTypes = Union{Material, Conductor, Annulus, WireGeometry, Layer, CableCore, FourCoreLV, CableDesign}
+const _ValueTypes = Union{
+    Material, Conductor, Annulus, WireGeometry, Layer, CableCore, FourCoreLV, CableDesign,
+    PlacedCable, InDuct, EarthModel, CableSystem,
+}
 
 _fields(x) = ntuple(i -> getfield(x, i), Val(fieldcount(typeof(x))))
 _same_kind(a, b) = nameof(typeof(a)) === nameof(typeof(b))

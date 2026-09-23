@@ -26,4 +26,14 @@
             U0 = 0.6e3, common_layers = [Jacket(18.2e-3, 20.2e-3, PVC)],
         )
     end
+
+    mv_earth() = EarthModel(; rho = 100.0, k_th = 1.0, T_ambient = 15.0)
+
+    function mv_system(r_c = 9.1e-3; depth = 1.0, kwargs...)
+        d = mv_design(r_c)
+        r = outer_radius(d)
+        centres = ((-r, -depth), (r, -depth), (zero(r), -depth + sqrt(3) * r))
+        cables = [PlacedCable(d, x, y, p) for ((x, y), p) in zip(centres, (:a, :b, :c))]
+        return CableSystem(cables; earth = mv_earth(), length = 5.0e3, frequency = 50.0, kwargs...)
+    end
 end

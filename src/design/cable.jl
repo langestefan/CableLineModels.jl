@@ -213,6 +213,9 @@ function CableDesign{T}(d::CableDesign) where {T <: Real}
     return CableDesign{T}(d.name, d.cores, d.layout, d.common_layers, d.U0, d.system_type)
 end
 
+Base.convert(::Type{CableDesign{T}}, d::CableDesign) where {T <: Real} = CableDesign{T}(d)
+Base.convert(::Type{CableDesign{T}}, d::CableDesign{T}) where {T <: Real} = d
+
 _cores_numtype(::AbstractVector{CableCore{T}}) where {T} = T
 _cores_numtype(v::AbstractVector{<:CableCore}) = _eltype_numtype(v)
 
