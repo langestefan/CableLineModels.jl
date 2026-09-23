@@ -12,7 +12,7 @@ export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
 export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
 export CableCore, CoreLayout, SingleCore, FourCoreLV, CableDesign
 export Annulus, WireGeometry, geometry, inner_radius, outer_radius, metallic_layers
-export PlacedCable, Bonding, BothEnds, SinglePoint, CrossBonded, EarthModel, CableSystem
+export PlacedCable, trefoil, Bonding, BothEnds, SinglePoint, CrossBonded, EarthModel, CableSystem
 export ParameterMethod, IEC60287Method, LoopMethod, ZYData, compute_ZY
 
 include("utils.jl")
@@ -44,6 +44,7 @@ include("design/system.jl")
 include("parameters/interface.jl")
 include("parameters/conductor.jl")
 include("parameters/assembly.jl")
+include("show.jl")
 
 const _ValueTypes = Union{
     Material, Conductor, Annulus, WireGeometry, Layer, CableCore, FourCoreLV, CableDesign,

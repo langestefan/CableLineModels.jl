@@ -119,6 +119,29 @@ end
     )
 end
 
+@testitem "CableDesign from material and area" tags = [:unit] begin
+    d = CableDesign(ALUMINIUM, 240.0e-6; U0 = 12.0e3)
+    @test d.name == "1x240 mm² aluminium, U0 = 12.0 kV"
+    @test d.U0 == 12.0e3 && d.layout == SingleCore()
+    core = only(d.cores)
+    @test core.conductor.material === ALUMINIUM && core.conductor.area_nominal == 240.0e-6
+    @test outer_radius(core.conductor) ≈ 9.11e-3 rtol = 1.0e-3
+    ins = core.layers[2]
+    @test ins isa InsulationLayer && outer_radius(ins) - inner_radius(ins) ≈ 5.5e-3
+    screen = only(metallic_layers(core))
+    @test screen isa WireScreen && screen.material === COPPER
+    @test screen.geom.n_wires * pi * screen.geom.r_wire^2 >= 16.0e-6
+    @test core.layers[end] isa Jacket
+
+    @test CableDesign(COPPER, 25.0e-6; U0 = 3.6e3) isa CableDesign
+    @test CableDesign(COPPER, 1000.0e-6; U0 = 18.0e3) isa CableDesign
+    thin = CableDesign(COPPER, 95.0e-6; U0 = 12.0e3, t_insulation = 3.0e-3)
+    @test outer_radius(thin) < outer_radius(CableDesign(COPPER, 95.0e-6; U0 = 12.0e3))
+    @test_throws "pass t_insulation" CableDesign(COPPER, 630.0e-6; U0 = 64.0e3)
+    @test CableDesign(COPPER, 630.0e-6; U0 = 64.0e3, t_insulation = 16.0e-3) isa CableDesign
+    @test_throws "area" CableDesign(COPPER, 0.0; U0 = 12.0e3)
+end
+
 @testitem "CableDesign four-core LV" tags = [:unit] setup = [Fixtures] begin
     d = Fixtures.lv_design()
     @test d.layout isa FourCoreLV{Float64}
@@ -137,6 +160,22 @@ end
     @test FourCoreLV(1) isa FourCoreLV{Float64} && FourCoreLV(1).lay_length === nothing
     @test FourCoreLV(1.0f0; lay_length = 1).lay_length === 1.0f0
     @test_throws "lay_length must be positive" FourCoreLV(1.0; lay_length = 0.0)
+end
+
+@testitem "Design display" tags = [:unit] setup = [Fixtures] begin
+    d = CableDesign(COPPER, 240.0e-6; U0 = 12.0e3)
+    @test sprint(show, d) == "CableDesign(\"1x240 mm² copper, U0 = 12.0 kV\")"
+    txt = repr("text/plain", d)
+    @test startswith(txt, "CableDesign \"1x240 mm² copper, U0 = 12.0 kV\"\n  AC, U0 = 12.0 kV, SingleCore()")
+    @test occursin("\n  core:\n    Conductor       copper", txt)
+    @test occursin("mm, 32 wires", txt)
+    @test startswith(repr("text/plain", only(d.cores)), "CableCore, radii inside-out:\n  Conductor")
+
+    lv = repr("text/plain", Fixtures.lv_design())
+    @test occursin("each of 4 cores:", lv) && occursin("common layers:\n    Jacket          PVC               18.2 – 20.2 mm", lv)
+    mixed = Fixtures.lv_design()
+    mixed = CableDesign("x", [mixed.cores[1:3]; CableCore(mixed.cores[1].conductor)], mixed.layout; U0 = 600.0, common_layers = mixed.common_layers)
+    @test occursin("core 4:", repr("text/plain", mixed))
 end
 
 @testitem "Design types with dual numbers" tags = [:ad] setup = [Fixtures] begin

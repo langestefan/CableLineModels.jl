@@ -64,21 +64,6 @@ function Material(
     return Material(name, rho, alpha, eps_r, mu_r, tan_delta, k_th)
 end
 
-function Base.show(io::IO, m::Material)
-    return print(io, "Material(\"", m.name, "\")")
-end
-
-function Base.show(io::IO, ::MIME"text/plain", m::Material{T}) where {T}
-    print(io, "Material{", T, "} \"", m.name, "\"")
-    for (label, x, unit) in (
-            ("rho", m.rho, " Ω·m"), ("alpha", m.alpha, " 1/K"), ("eps_r", m.eps_r, ""),
-            ("mu_r", m.mu_r, ""), ("tan_delta", m.tan_delta, ""), ("k_th", m.k_th, " K·m/W"),
-        )
-        print(io, "\n  ", rpad(label, 10), "= ", x, unit)
-    end
-    return nothing
-end
-
 """
     COPPER
 

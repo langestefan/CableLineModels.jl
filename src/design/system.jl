@@ -37,6 +37,21 @@ end
 outer_radius(c::PlacedCable) = outer_radius(c.design)
 
 """
+    trefoil(design; depth = 1.0)
+
+Three single-core cables of `design` touching in trefoil, phases `:a`, `:b` and `:c`, with
+the two lower cables at `depth` [m] below ground and the third on top.
+"""
+function trefoil(design::CableDesign; depth::Real = 1.0)
+    r = outer_radius(design)
+    return [
+        PlacedCable(design, -r, -depth, :a),
+        PlacedCable(design, r, -depth, :b),
+        PlacedCable(design, zero(r), -depth + sqrt(3) * r, :c),
+    ]
+end
+
+"""
     Bonding
 
 Abstract supertype for how the metallic screens of a [`CableSystem`](@ref) are earthed.
@@ -72,7 +87,7 @@ struct CrossBonded <: Bonding
 end
 
 """
-    EarthModel(; rho, k_th, T_ambient, eps_r = 1, mu_r = 1)
+    EarthModel(; rho = 100, k_th = 1, T_ambient = 15, eps_r = 1, mu_r = 1)
 
 Electrical and thermal properties of the soil around a [`CableSystem`](@ref).
 
@@ -91,7 +106,9 @@ struct EarthModel{T <: Real}
     k_th::T
     T_ambient::T
 
-    function EarthModel(; rho::Real, k_th::Real, T_ambient::Real, eps_r::Real = 1, mu_r::Real = 1)
+    function EarthModel(;
+            rho::Real = 100, k_th::Real = 1, T_ambient::Real = 15, eps_r::Real = 1, mu_r::Real = 1,
+        )
         _check_finite("EarthModel", (; rho, eps_r, mu_r, k_th, T_ambient))
         rho > 0 || throw(ArgumentError("EarthModel: rho must be positive, got $rho"))
         eps_r >= 1 || throw(ArgumentError("EarthModel: eps_r must be ≥ 1, got $eps_r"))
@@ -103,7 +120,7 @@ struct EarthModel{T <: Real}
 end
 
 """
-    CableSystem(cables; earth, length, frequency, bonding = BothEnds())
+    CableSystem(cables; earth = EarthModel(), length = 1e3, frequency = 50, bonding = BothEnds())
 
 Cables laid along one route, with their bonding and the surrounding earth. `cables` is a
 vector of [`PlacedCable`](@ref), or a single one.
@@ -145,7 +162,8 @@ struct CableSystem{T <: Real}
 
     function CableSystem(
             cables::AbstractVector{<:PlacedCable};
-            earth::EarthModel, length::Real, frequency::Real, bonding::Bonding = BothEnds(),
+            earth::EarthModel = EarthModel(), length::Real = 1.0e3, frequency::Real = 50,
+            bonding::Bonding = BothEnds(),
         )
         isempty(cables) && throw(ArgumentError("CableSystem: needs at least one cable"))
         isfinite(length) && length > 0 ||

@@ -175,6 +175,70 @@ function CableDesign(name::AbstractString, core::CableCore, layout::CoreLayout =
     return CableDesign(name, [core], layout; kwargs...)
 end
 
+"""
+    CableDesign(material, area; U0, t_insulation = typical for U0, screen_area = 16e-6)
+
+Typical single-core XLPE cable with a round stranded conductor of `material` (e.g.
+[`COPPER`](@ref) or [`ALUMINIUM`](@ref)) and nominal cross-section `area` [m²], rated at
+phase-to-earth voltage `U0` [V]. The cable has, inside-out:
+
+  - the compacted conductor;
+  - a 0.5 mm semiconducting conductor screen;
+  - XLPE insulation of thickness `t_insulation` [m], by default a typical thickness for the
+    medium-voltage class that covers `U0` (up to 18 kV);
+  - a 0.5 mm semiconducting insulation screen;
+  - a copper wire screen of cross-section `screen_area` [m²];
+  - a PVC jacket.
+
+For a specific cable, build it layer by layer from a [`Conductor`](@ref) and
+[`CableCore`](@ref) instead.
+
+# Example
+
+```jldoctest
+julia> d = CableDesign(ALUMINIUM, 240e-6; U0 = 12e3);
+
+julia> d.name
+"1x240 mm² aluminium, U0 = 12.0 kV"
+```
+"""
+function CableDesign(
+        material::Material, area::Real;
+        U0::Real, t_insulation::Real = _insulation_thickness(U0), screen_area::Real = 16.0e-6,
+    )
+    isfinite(area) && area > 0 ||
+        throw(ArgumentError("CableDesign: area must be positive and finite, got $area"))
+    n_strands = area <= 35.0e-6 ? 7 : area <= 150.0e-6 ? 19 : area <= 300.0e-6 ? 37 : 61
+    r_c = sqrt(area / (pi * 0.92))
+    conductor = Conductor(RoundStranded(n_strands), material; r_out = r_c, area_nominal = area)
+
+    r1 = r_c + 0.5e-3
+    r2 = r1 + t_insulation
+    r3 = r2 + 0.5e-3
+    r_wire = 0.4e-3
+    n_wires = ceil(Int, screen_area / (pi * r_wire^2))
+    r4 = r3 + 2 * r_wire
+    t_jacket = max(0.035 * 2 * r4 + 1.0e-3, 1.4e-3)
+    core = CableCore(
+        conductor, [
+            SemiconLayer(r_c, r1),
+            InsulationLayer(r1, r2, XLPE),
+            SemiconLayer(r2, r3),
+            WireScreen(r3 + r_wire, n_wires, r_wire, 20 * (r3 + r_wire), COPPER),
+            Jacket(r4, r4 + t_jacket, PVC),
+        ],
+    )
+    name = "1x$(round(Int, area * 1.0e6)) mm² $(material.name), U0 = $(U0 / 1.0e3) kV"
+    return CableDesign(name, core; U0)
+end
+
+function _insulation_thickness(U0)
+    for (U, t) in ((3.6e3, 2.5e-3), (6.0e3, 3.4e-3), (8.7e3, 4.5e-3), (12.0e3, 5.5e-3), (18.0e3, 8.0e-3))
+        U0 <= U && return t
+    end
+    throw(ArgumentError("CableDesign: no typical insulation thickness above U0 = 18 kV, pass t_insulation"))
+end
+
 function outer_radius(d::CableDesign)
     isempty(d.common_layers) && return _cores_radius(d.layout, d.cores)
     return outer_radius(last(d.common_layers))

@@ -9,6 +9,15 @@
     @test zy == ZYData([0.0], Z, Z, [:a, :b], 90.0, 70.0)
     @test_throws "must be 2×2×1" ZYData([0.0], Z, zeros(ComplexF64, 2, 2, 2), [:a, :b], 90, 70)
     @test_throws "labels must be unique" ZYData([0.0], Z, Z, [:a, :a], 90, 70)
+
+    Z[1, 1, 1] = 1.0e-4
+    shown = repr("text/plain", ZYData([0.0], Z, Z, [:a, :b], 90, 70))
+    @test startswith(shown, "ZYData{Float64}: 2 conductors, 1 frequency, cores at 90.0 °C, screens at 70.0 °C")
+    @test occursin("at 0.0 Hz [Ω/km]:\n    a           0.1\n    b           0.0", shown)
+    Zac = fill(1.0e-4 + 2.0e-4im, 2, 2, 2)
+    shown = repr("text/plain", ZYData([50.0, 100.0], Zac, Zac, [:a, :b], 90, 70))
+    @test occursin("2 frequencies", shown) && occursin("50.0 Hz (first frequency)", shown)
+    @test occursin("0.1+0.2im", shown)
 end
 
 @testitem "compute_ZY at DC" tags = [:unit] setup = [Fixtures] begin

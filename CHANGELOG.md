@@ -13,11 +13,14 @@ and this project adheres to [Semantic Versioning].
 - `UnsupportedError` for valid but unsupported input combinations.
 - Cable design types: conductor shapes, `Conductor`, layers, `CableCore`, `CableDesign`
   (`SingleCore`, `FourCoreLV`), with geometry validation.
-- Cable system types: `PlacedCable`, `EarthModel`, bonding (`BothEnds`, `SinglePoint`,
-  `CrossBonded`) and `CableSystem`.
+- `CableDesign(material, area; U0)` for a typical single-core XLPE cable.
+- Cable system types: `PlacedCable`, `trefoil`, `EarthModel`, bonding (`BothEnds`,
+  `SinglePoint`, `CrossBonded`) and `CableSystem`, with default soil, length and frequency.
 - Parameter interface: `ParameterMethod`, `IEC60287Method`, `LoopMethod`, `ZYData` and
   `compute_ZY`, with DC resistances at `f = 0` (separate conductor and screen temperatures,
   lay factor for wire screens and armour, lay-up factor for four-core cables).
+- Readable display of materials, cable cores and designs, earth models, cable systems and
+  `ZYData`.
 
 <!-- Links -->
 

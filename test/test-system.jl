@@ -6,6 +6,8 @@
     big_e = EarthModel(; rho = big(100), k_th = 1, T_ambient = 15)
     @test big_e == e && hash(big_e) == hash(e)
 
+    @test EarthModel() == e
+
     @test_throws "rho" EarthModel(; rho = 0, k_th = 1, T_ambient = 15)
     @test_throws "eps_r" EarthModel(; rho = 100, k_th = 1, T_ambient = 15, eps_r = 0.5)
     @test_throws "mu_r" EarthModel(; rho = 100, k_th = 1, T_ambient = 15, mu_r = 0.5)
@@ -46,6 +48,28 @@ end
     lv = CableSystem(c; earth = Fixtures.mv_earth(), length = 300.0, frequency = 50.0)
     @test lv isa CableSystem{Float64}
     @test CableSystem(c; earth = Fixtures.mv_earth(), length = 300.0f0, frequency = 50.0f0) isa CableSystem{Float32}
+end
+
+@testitem "Trefoil and system defaults" tags = [:unit] setup = [Fixtures] begin
+    d = Fixtures.mv_design()
+    cables = trefoil(d; depth = 1.2)
+    @test [only(c.phases) for c in cables] == [:a, :b, :c]
+    @test cables[1].y == cables[2].y == -1.2
+    r = outer_radius(d)
+    dist(a, b) = hypot(a.x - b.x, a.y - b.y)
+    @test dist(cables[1], cables[2]) ≈ 2r && dist(cables[1], cables[3]) ≈ 2r && dist(cables[2], cables[3]) ≈ 2r
+
+    sys = CableSystem(trefoil(d))
+    @test sys.earth == EarthModel() && sys.length == 1.0e3 && sys.frequency == 50
+    @test sys.bonding == BothEnds()
+    @test_throws "has 4 core(s)" trefoil(Fixtures.lv_design())
+end
+
+@testitem "System display" tags = [:unit] setup = [Fixtures] begin
+    @test occursin("T_ambient = 15.0 °C", repr("text/plain", EarthModel()))
+    txt = repr("text/plain", Fixtures.mv_system())
+    @test startswith(txt, "CableSystem{Float64}: 3 cables, 5000.0 m, 50.0 Hz, BothEnds()")
+    @test occursin("cable 1: \"MV 1x240 Al 12/20 kV\" at (", txt) && occursin("phases c", txt)
 end
 
 @testitem "CableSystem validation" tags = [:unit] setup = [Fixtures] begin
