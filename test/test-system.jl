@@ -13,10 +13,7 @@
     @test_throws "T_ambient" EarthModel(; rho = 100, k_th = 1, T_ambient = NaN)
 end
 
-@testitem "Installation and bonding" tags = [:unit] begin
-    @test InDuct(0.05, 0.06) isa InDuct{Float64}
-    @test InDuct{BigFloat}(0.05, 0.06) == InDuct(0.05, 0.06)
-    @test_throws "InDuct: need 0 < r_in < r_out" InDuct(0.06, 0.05)
+@testitem "Bonding" tags = [:unit] begin
     @test CrossBonded(2).n_major == 2
     @test_throws ArgumentError CrossBonded(0)
 end
@@ -40,8 +37,8 @@ end
 
 @testitem "CableSystem construction" tags = [:unit] setup = [Fixtures] begin
     sys = Fixtures.mv_system()
-    @test sys isa CableSystem{Float64, DirectBuried, BothEnds}
-    @test length(sys.cables) == 3 && isempty(sys.compensation)
+    @test sys isa CableSystem{Float64} && sys.bonding == BothEnds()
+    @test length(sys.cables) == 3
     @test numtype(sys) == Float64
     @test sys == Fixtures.mv_system() && hash(sys) == hash(Fixtures.mv_system())
     @test sys != Fixtures.mv_system(; bonding = SinglePoint())
@@ -73,14 +70,6 @@ end
     @test sys(PlacedCable(d, 0.0, -2r, :a)) isa CableSystem
     @test_throws "cables 1 and 2 overlap" sys([PlacedCable(d, 0.0, -1.0, :a), PlacedCable(d, r, -1.0, :b)])
     @test sys([PlacedCable(d, 0.0, -1.0, :a), PlacedCable(d, 2r, -1.0, :b)]) isa CableSystem
-
-    duct = InDuct(r + 1.0e-3, r + 5.0e-3)
-    cables = [PlacedCable(d, 0.0, -1.0, :a), PlacedCable(d, 2r, -1.0, :b)]
-    @test_throws "cables 1 and 2 overlap" sys(cables; installation = duct)
-    ducted = sys([PlacedCable(d, 0.0, -1.0, :a), PlacedCable(d, 0.1, -1.0, :b)]; installation = duct)
-    @test ducted isa CableSystem{Float64, InDuct{Float64}}
-    @test_throws "does not fit in a duct" sys(cables; installation = InDuct(r / 2, 2r))
-    @test_throws "above ground" sys(PlacedCable(d, 0.0, -r - 1.0e-3, :a); installation = duct)
 end
 
 @testitem "CableSystem with dual numbers" tags = [:ad] setup = [Fixtures] begin

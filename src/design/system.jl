@@ -54,61 +54,6 @@ _placed_numtype(v::AbstractVector{<:PlacedCable}) = _eltype_numtype(v)
 outer_radius(c::PlacedCable{T}) where {T} = outer_radius(c.design)::T
 
 """
-    Installation
-
-Abstract supertype for how the cables of a [`CableSystem`](@ref) are laid.
-"""
-abstract type Installation end
-
-"""
-    DirectBuried()
-
-Cables buried directly in the soil.
-"""
-struct DirectBuried <: Installation end
-
-"""
-    InDuct(r_duct_in, r_duct_out)
-
-Every cable in its own duct, centred on the cable. Radii in [m].
-"""
-struct InDuct{T <: Real} <: Installation
-    r_duct_in::T
-    r_duct_out::T
-
-    function InDuct{T}(r_duct_in, r_duct_out) where {T <: Real}
-        _check_annulus("InDuct", r_duct_in, r_duct_out)
-        return new{T}(r_duct_in, r_duct_out)
-    end
-end
-
-InDuct(r_duct_in::Real, r_duct_out::Real) = InDuct{_promote_numtype(r_duct_in, r_duct_out)}(r_duct_in, r_duct_out)
-
-numtype(::InDuct{T}) where {T} = T
-
-_installation_numtype(::DirectBuried) = Union{}
-_installation_numtype(i::InDuct) = numtype(i)
-_retype(::Type{T}, i::DirectBuried) where {T} = i
-_retype(::Type{T}, i::InDuct) where {T} = InDuct{T}(i.r_duct_in, i.r_duct_out)
-
-_placed_radius(::DirectBuried, c::PlacedCable) = outer_radius(c)
-_placed_radius(i::InDuct, ::PlacedCable) = i.r_duct_out
-
-_check_installation(::DirectBuried, _) = nothing
-
-function _check_installation(i::InDuct, cables)
-    for (k, c) in enumerate(cables)
-        _fits_outside(i.r_duct_in, outer_radius(c)) || throw(
-            ArgumentError(
-                "CableSystem: cable $k (outer radius $(outer_radius(c)) m) does not fit in a " *
-                    "duct of inner radius $(i.r_duct_in) m",
-            ),
-        )
-    end
-    return nothing
-end
-
-"""
     Bonding
 
 Abstract supertype for how the metallic screens of a [`CableSystem`](@ref) are earthed.
@@ -191,36 +136,20 @@ Base.convert(::Type{EarthModel{T}}, e::EarthModel{T}) where {T <: Real} = e
 numtype(::EarthModel{T}) where {T} = T
 
 """
-    Compensation{T<:Real}
+    CableSystem{T<:Real}
 
-Abstract supertype for reactive compensation connected along a [`CableSystem`](@ref).
-"""
-abstract type Compensation{T <: Real} end
-
-numtype(::Compensation{T}) where {T} = T
-
-const _Compensations = Union{AbstractVector{<:Compensation}, Tuple{Vararg{Compensation}}}
-
-_compensation_numtype(v::AbstractVector{<:Compensation}) = _eltype_numtype(v)
-_compensation_numtype(t::Tuple{Vararg{Compensation}}) = promote_type(Union{}, map(numtype, t)...)
-
-"""
-    CableSystem{T<:Real,I<:Installation,B<:Bonding}
-
-Cables laid along one route, with their installation, bonding and the surrounding earth.
+Cables laid along one route, with their bonding and the surrounding earth.
 
 # Fields
 
   - `cables::Vector{PlacedCable{T}}`
-  - `installation::I`: see [`Installation`](@ref).
-  - `bonding::B`: see [`Bonding`](@ref).
+  - `bonding::Bonding`: see [`Bonding`](@ref).
   - `earth::EarthModel{T}`
   - `length::T`: route length [m].
   - `frequency::T`: nominal frequency [Hz], `0` for DC.
-  - `compensation::Vector{Compensation{T}}`: may be empty.
 
-All cables, including their ducts, must lie below ground and must not overlap; overlaps below
-1e-6 relative count as touching.
+All cables must lie below ground and must not overlap; overlaps below 1e-6 relative count
+as touching.
 
 # Example
 
@@ -239,48 +168,27 @@ julia> sys.bonding
 BothEnds()
 ```
 """
-struct CableSystem{T <: Real, I <: Installation, B <: Bonding}
+struct CableSystem{T <: Real}
     cables::Vector{PlacedCable{T}}
-    installation::I
-    bonding::B
+    bonding::Bonding
     earth::EarthModel{T}
     length::T
     frequency::T
-    compensation::Vector{Compensation{T}}
 
-    function CableSystem{T, I, B}(
-            cables, installation::I, bonding::B, earth, length, frequency, compensation,
-        ) where {T <: Real, I <: Installation, B <: Bonding}
+    function CableSystem{T}(cables, bonding::Bonding, earth, length, frequency) where {T <: Real}
         cables = PlacedCable{T}[PlacedCable{T}(c) for c in cables]
-        compensation = Compensation{T}[c for c in compensation]
         isempty(cables) && throw(ArgumentError("CableSystem: needs at least one cable"))
         isfinite(length) && length > 0 ||
             throw(ArgumentError("CableSystem: length must be positive and finite, got $length"))
         isfinite(frequency) && frequency >= 0 ||
             throw(ArgumentError("CableSystem: frequency must be ≥ 0 and finite, got $frequency"))
-        _check_installation(installation, cables)
-        _check_placement(installation, cables)
-        return new{T, I, B}(cables, installation, bonding, earth, length, frequency, compensation)
+        _check_placement(cables)
+        return new{T}(cables, bonding, earth, length, frequency)
     end
 end
 
-function CableSystem{T}(
-        cables, installation::Installation, bonding::Bonding, earth, length, frequency, compensation,
-    ) where {T <: Real}
-    return _cable_system(
-        T, cables, _retype(T, installation), bonding, earth, length, frequency, compensation,
-    )
-end
-
-function _cable_system(
-        ::Type{T}, cables, installation::I, bonding::B, earth, length, frequency, compensation,
-    ) where {T, I, B}
-    return CableSystem{T, I, B}(cables, installation, bonding, earth, length, frequency, compensation)
-end
-
 """
-    CableSystem(cables; earth, length, frequency, bonding = BothEnds(),
-                installation = DirectBuried(), compensation = ())
+    CableSystem(cables; earth, length, frequency, bonding = BothEnds())
     CableSystem(cable::PlacedCable; kwargs...)
 
 Keyword constructor. `cables` is a vector of [`PlacedCable`](@ref), or a single one. Units as
@@ -289,40 +197,31 @@ in [`CableSystem`](@ref). All numbers are promoted to a common floating-point ty
 function CableSystem(
         cables::AbstractVector{<:PlacedCable};
         earth::EarthModel, length::Real, frequency::Real, bonding::Bonding = BothEnds(),
-        installation::Installation = DirectBuried(), compensation::_Compensations = (),
     )
-    T = float(
-        promote_type(
-            _placed_numtype(cables), _installation_numtype(installation), numtype(earth),
-            typeof(length), typeof(frequency), _compensation_numtype(compensation),
-        ),
-    )
-    return CableSystem{T}(cables, installation, bonding, earth, length, frequency, compensation)
+    T = float(promote_type(_placed_numtype(cables), numtype(earth), typeof(length), typeof(frequency)))
+    return CableSystem{T}(cables, bonding, earth, length, frequency)
 end
 
 CableSystem(cable::PlacedCable; kwargs...) = CableSystem([cable]; kwargs...)
 
 function CableSystem{T}(s::CableSystem) where {T <: Real}
-    return CableSystem{T}(
-        s.cables, s.installation, s.bonding, s.earth, s.length, s.frequency, s.compensation,
-    )
+    return CableSystem{T}(s.cables, s.bonding, s.earth, s.length, s.frequency)
 end
 
 numtype(::CableSystem{T}) where {T} = T
 
-function _check_placement(installation, cables)
+function _check_placement(cables)
     for (i, c) in enumerate(cables)
-        r = _placed_radius(installation, c)
-        c.y + r < 0 || throw(
+        c.y + outer_radius(c) < 0 || throw(
             ArgumentError(
-                "CableSystem: cable $i reaches above ground (y = $(c.y) m, radius $r m)",
+                "CableSystem: cable $i reaches above ground (y = $(c.y) m, radius $(outer_radius(c)) m)",
             ),
         )
     end
     for i in eachindex(cables), j in (i + 1):lastindex(cables)
         a, b = cables[i], cables[j]
         d = sqrt((a.x - b.x)^2 + (a.y - b.y)^2)
-        _fits_outside(d, _placed_radius(installation, a) + _placed_radius(installation, b)) ||
+        _fits_outside(d, outer_radius(a) + outer_radius(b)) ||
             throw(ArgumentError("CableSystem: cables $i and $j overlap"))
     end
     return nothing

@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning].
 - `UnsupportedError` for valid but unsupported input combinations.
 - Cable design types: conductor shapes, `Conductor`, layers, `CableCore`, `CableDesign`
   (`SingleCore`, `FourCoreLV`), with geometry validation.
-- Cable system types: `PlacedCable`, `EarthModel`, installations (`DirectBuried`, `InDuct`),
-  bonding (`BothEnds`, `SinglePoint`, `CrossBonded`), `Compensation` and `CableSystem`.
+- Cable system types: `PlacedCable`, `EarthModel`, bonding (`BothEnds`, `SinglePoint`,
+  `CrossBonded`) and `CableSystem`.
 - Parameter interface: `ParameterMethod`, `IEC60287Method`, `LoopMethod`, `ZYData` and
   `compute_ZY`, with DC resistance and leakage conductance at `f = 0`.
 

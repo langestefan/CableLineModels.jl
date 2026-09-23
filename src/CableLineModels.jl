@@ -12,8 +12,7 @@ export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
 export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
 export CableCore, CoreLayout, SingleCore, FourCoreLV, CableDesign
 export Annulus, WireGeometry, geometry, inner_radius, outer_radius, metallic_layers
-export PlacedCable, Installation, DirectBuried, InDuct, Bonding, BothEnds, SinglePoint, CrossBonded
-export EarthModel, Compensation, CableSystem
+export PlacedCable, Bonding, BothEnds, SinglePoint, CrossBonded, EarthModel, CableSystem
 export ParameterMethod, IEC60287Method, LoopMethod, ZYData, compute_ZY
 
 include("utils.jl")
@@ -48,7 +47,7 @@ include("parameters/assembly.jl")
 
 const _ValueTypes = Union{
     Material, Conductor, Annulus, WireGeometry, Layer, CableCore, FourCoreLV, CableDesign,
-    PlacedCable, InDuct, EarthModel, CableSystem, ZYData,
+    PlacedCable, EarthModel, CableSystem, ZYData,
 }
 
 _fields(x) = ntuple(i -> getfield(x, i), Val(fieldcount(typeof(x))))

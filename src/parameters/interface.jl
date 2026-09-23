@@ -94,14 +94,9 @@ At `f = 0`, `Z` is diagonal with the DC resistances
 
 where ``R_{dc,20}`` is the conductor's `R_dc20`, or else `rho / area_nominal`; for a
 tubular screen `rho` over its annulus area, and for a wire layer `rho` over the total wire
-area. `Y = G` is the leakage conductance through the non-metallic layers between
-neighbouring metallic layers and, from the outermost one, to earth; each layer contributes
-``\\rho \\ln(r_{out}/r_{in}) / 2\\pi`` [Ω·m] in series, and gaps between layers are ignored.
-The cores of a multi-core cable meet at the inside of the common layers.
-
-The resistivities of the insulating materials in the library are nominal. The DC
-conductivity of real insulation, XLPE in particular, depends strongly on temperature and
-electric field, so treat `G` as an order of magnitude.
+area. `Y` is zero: the leakage conductance of the insulation is negligible for network
+models (about 1e-16 S/m for XLPE) and too uncertain to be worth modelling, because the DC
+conductivity of insulation depends strongly on temperature and electric field.
 
 # Example
 
@@ -145,7 +140,7 @@ function _compute_ZY(sys::CableSystem, method::ParameterMethod, freqs::Vector{T}
     Z = zeros(Complex{T}, n, n, length(freqs))
     Y = zeros(Complex{T}, n, n, length(freqs))
     for (k, f) in enumerate(freqs)
-        Zk, Yk = iszero(f) ? _zy_dc(sys, metals, T_conductor) : _zy_ac(sys, method, f, T_conductor)
+        Zk, Yk = iszero(f) ? _zy_dc(metals, T_conductor) : _zy_ac(sys, method, f, T_conductor)
         Z[:, :, k] = Zk
         Y[:, :, k] = Yk
     end
