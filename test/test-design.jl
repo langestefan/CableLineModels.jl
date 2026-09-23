@@ -29,6 +29,25 @@ end
     @test_throws ArgumentError Conductor(RoundSolid(), COPPER; r_out = 1.0, area_nominal = 1.0, R_dc20 = NaN)
 end
 
+@testitem "Layer geometry" tags = [:unit] begin
+    g = Annulus(1, 2)
+    @test g isa Annulus{Float64} && inner_radius(g) == 1 && outer_radius(g) == 2
+    w = WireGeometry(10.0e-3, 40, 0.5e-3, 0.2)
+    @test w isa WireGeometry{Float64} && inner_radius(w) ≈ 9.5e-3
+
+    l = InsulationLayer(Annulus(1.0f0, 2.0f0), XLPE)
+    @test l isa InsulationLayer{Float64} && geometry(l) isa Annulus{Float64}
+    @test geometry(l) == Annulus(1.0f0, 2.0f0)
+    @test geometry(Armour(w, STEEL)) === w
+    @test Armour(w, STEEL) != WireScreen(w, STEEL)
+    @test Annulus{BigFloat}(g) == g && hash(Annulus{BigFloat}(g)) == hash(g)
+
+    @test_throws "Annulus: need 0 < r_in < r_out" Annulus(2.0, 1.0)
+    @test_throws "Jacket: need 0 < r_in < r_out" Jacket(2.0, 1.0, PVC)
+    @test_throws "WireGeometry: n_wires" WireGeometry(1.0, 0, 0.1, 1.0)
+    @test_throws "Armour: n_wires" Armour(1.0, 0, 0.1, 1.0, STEEL)
+end
+
 @testitem "Tubular layers" tags = [:unit] begin
     for L in (InsulationLayer, TubularScreen, Jacket)
         l = L(1, 2, XLPE)

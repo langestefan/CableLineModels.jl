@@ -11,12 +11,13 @@ export COPPER, ALUMINIUM, LEAD, STEEL, XLPE, PVC, EPR, PAPER_OIL, MASS_IMPREGNAT
 export ConductorShape, RoundSolid, RoundStranded, Milliken, Conductor
 export Layer, TubularLayer, WireLayer, InsulationLayer, SemiconLayer, TubularScreen, WireScreen, Armour, Jacket
 export CableCore, CoreLayout, SingleCore, FourCoreLV, CableDesign
-export inner_radius, outer_radius, metallic_layers
+export Annulus, WireGeometry, geometry, inner_radius, outer_radius, metallic_layers
 
 include("utils.jl")
 include("errors.jl")
 include("materials/materials.jl")
 include("design/shapes.jl")
+include("design/geometry.jl")
 include("design/layers.jl")
 include("design/cable.jl")
 include("equality.jl")
